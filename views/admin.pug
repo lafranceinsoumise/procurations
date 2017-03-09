@@ -1,0 +1,13 @@
+extends layout.pug
+
+block content
+  table.table
+    tr
+      th Email
+      th Valide
+      th Ville (Code INSEE)
+    each elem in list
+      tr
+        td= elem.email
+        td= elem.valid
+        td= elem.city

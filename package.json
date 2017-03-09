@@ -1,0 +1,47 @@
+{
+  "name": "@jlm2017/procurations",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "engines": {
+    "node": ">=7.6.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jlm2017/procurations.git"
+  },
+  "keywords": [
+    "mélenchon",
+    "jlm2017",
+    "elections",
+    "procurations"
+  ],
+  "author": "Guillaume Royer <guillaume.royer@jlm2017.fr>",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/jlm2017/procurations/issues"
+  },
+  "homepage": "https://github.com/jlm2017/procurations#readme",
+  "dependencies": {
+    "bluebird": "^3.5.0",
+    "body-parser": "^1.17.1",
+    "connect-redis": "^3.2.0",
+    "express": "^4.15.2",
+    "express-session": "^1.15.1",
+    "morgan": "^1.8.1",
+    "nodemailer": "^3.1.4",
+    "pug": "^0.1.0",
+    "redis": "^2.6.5",
+    "request": "^2.80.0",
+    "request-promise-native": "^1.0.3",
+    "uuid": "^3.0.1",
+    "validator": "^7.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^3.17.1"
+  }
+}

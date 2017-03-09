@@ -1,0 +1,16 @@
+extends layout.pug
+
+block content
+  p.lead.
+    Merci&nbsp! Votre adresse email #{email} est bien confirmée.
+  p.lead.
+    Dernière étape&nbsp;: choisissez ci-dessous votre commune, nous essaierons
+    de trouver quelqu'un pouvant prendre votre procuration.
+  form(action="/etape-2" method="POST")
+    .form-group
+      label Commune d'inscription sur les listes électorales
+      input#commune-input.form-control.input-block(type="text" name="commune" required)
+      input.btn.btn-primary.btn-block(type="submit")
+  script(src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous")
+  script(src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.4/js/standalone/selectize.min.js" integrity="sha256-HyBiZFJAMvxOhZoWOc5LWIWaN1gcFi8LjS75BZF4afg=" crossorigin="anonymous")
+  script(src="public/main.js")
