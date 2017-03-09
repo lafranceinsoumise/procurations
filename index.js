@@ -13,6 +13,7 @@ bluebird.promisifyAll(redisPkg.RedisClient.prototype);
 bluebird.promisifyAll(redisPkg.Multi.prototype);
 
 const config = require('./config');
+var passport = require('./authentication');
 var RedisStore = require('connect-redis')(session);
 var redis = redisPkg.createClient({prefix: config.redisPrefix});
 var mailer = nodemailer.createTransport(config.emailTransport);
@@ -107,6 +108,24 @@ app.get('/etape-2/confirmation', (req, res) => {
   res.render('end');
 });
 
+app.use(passport.initialize());
+app.use(passport.session());
+app.get('/login', (req, res) => {
+  res.render('login');
+});
+app.use('/login', passport.authenticate('local', {successRedirect: '/admin', failureRedirect: '/login'}));
+app.get('/logout', (req, res) => {
+  req.logout();
+  res.redirect('/');
+});
+app.use('/', (req, res, next) => {
+  if (!req.user && process.env.NODE_ENV !== 'test') res.redirect('/login');
+  if (!req.user && process.env.NODE_ENV === 'test') req.user = 'test';
+
+  res.locals.user = req.user;
+
+  return next();
+});
 app.use('/admin', require('./admin'));
 
 app.listen(process.env.PORT || 3000, '127.0.0.1', (err) => {

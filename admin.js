@@ -13,7 +13,8 @@ var wrap = module.exports = fn => (...args) => fn(...args).catch(args[2]);
 router.get('/:page?', wrap(async (req, res) => {
   var page = (req.params && req.params.page) || 1;
 
-  var list = await redis.lrangeAsync('all', 100 * (page - 1), 100);
+  var perPage = 3;
+  var list = await redis.lrangeAsync('all', perPage * (page - 1), perPage * page - 1);
 
   list = await Promise.all(list.map(async (email) => {
     var valid = await redis.existsAsync(`${email}:valid`);
@@ -25,7 +26,9 @@ router.get('/:page?', wrap(async (req, res) => {
     return {email, valid, city};
   }));
 
-  res.render('admin', {list});
+  var total = await redis.llenAsync('all');
+
+  res.render('admin', {list, total});
 }));
 
 module.exports = router;
