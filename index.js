@@ -37,7 +37,7 @@ app.get('/', (req, res) => {
 
 // Handle form, create token to validate email adress and send link by email
 app.post('/etape-1', wrap(async (req, res, next) => {
-  if (!req.body.email || !validator.isEmail(req.body.email)) return res.send(400);
+  if (!req.body.email || !validator.isEmail(req.body.email)) return res.status(400).send('Email invalide.');
 
   if (!await redis.getAsync(`${req.body.email}:token`)) {
     await redis.lpushAsync('all', req.body.email);
@@ -70,7 +70,7 @@ app.use(session({
 
 // Validate email address with token
 app.get('/etape-1/confirmation/:email/:token', wrap(async (req, res) => {
-  if (req.params.token !== await redis.getAsync(`${req.params.email}:token`)) return res.send(401);
+  if (req.params.token !== await redis.getAsync(`${req.params.email}:token`)) return res.status(401).send('Lien invalide.');
 
   req.session.email = req.params.email;
   await redis.setAsync(`${req.params.email}:valid`, true);
@@ -80,7 +80,7 @@ app.get('/etape-1/confirmation/:email/:token', wrap(async (req, res) => {
 
 // Form for step 2
 app.get('/etape-2', wrap(async (req,res) => {
-  if (!req.session.email) return res.send(401);
+  if (!req.session.email) return res.status(401).send('Vous devez cliquer sur le lien dans le mail.');
 
   var city = await redis.getAsync(`${req.session.email}:city`);
 
@@ -89,7 +89,7 @@ app.get('/etape-2', wrap(async (req,res) => {
 
 // Handle form, send emails to random people
 app.post('/etape-2', wrap(async (req, res) => {
-  if (!req.body.commune) return res.send(400);
+  if (!req.body.commune) return res.status(400).send('Commune inconnue.');
 
   var ban = await request({
     uri: `https://api-adresse.data.gouv.fr/search/?q=${req.body.commune}&type=municipality&citycode=${req.body.commune}`,
@@ -97,7 +97,7 @@ app.post('/etape-2', wrap(async (req, res) => {
   });
 
   if (!ban.features.length) {
-    return res.send(400);
+    return res.status(400).send('Commune inconnue.');
   }
 
   var zipcodes = ban.features.map(feature => (feature.properties.postcode));
