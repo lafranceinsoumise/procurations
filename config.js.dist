@@ -18,6 +18,6 @@ module.exports = {
     step1: 'https://htmlcontent'
   },
   secret: 'cat keyboard',
-  redisPrefix: 'jlm2017:legislatives',
+  redisPrefix: 'jlm2017:procurations:',
   host: 'https://example.com'
 }
