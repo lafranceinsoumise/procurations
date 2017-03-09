@@ -14,6 +14,9 @@ module.exports = {
       password: 'password'
     }
   ],
+  mails: {
+    step1: 'https://htmlcontent'
+  },
   secret: 'cat keyboard',
   redisPrefix: 'jlm2017:legislatives',
   host: 'https://example.com'
