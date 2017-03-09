@@ -21,6 +21,7 @@ var mailer = nodemailer.createTransport(config.emailTransport);
 var app = express();
 var wrap = module.exports = fn => (...args) => fn(...args).catch(args[2]);
 
+app.locals.config = config;
 app.set('views', './views');
 app.set('view engine', 'pug');
 app.get('env') === 'development' && app.use(morgan('dev'));
