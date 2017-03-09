@@ -53,7 +53,7 @@ app.post('/etape-1', wrap(async (req, res, next) => {
   mailer.sendMail(mailOptions, (err) => {
     if (err) return next(err);
 
-    return res.redirect('/etape-1/confirmation');
+    res.redirect('/etape-1/confirmation');
   });
 }));
 
@@ -75,7 +75,7 @@ app.get('/etape-1/confirmation/:email/:token', wrap(async (req, res) => {
   req.session.email = req.params.email;
   await redis.setAsync(`${req.params.email}:valid`, true);
 
-  return res.redirect('/etape-2');
+  res.redirect('/etape-2');
 }));
 
 // Form for step 2
@@ -133,7 +133,7 @@ app.use('/', (req, res, next) => {
 
   res.locals.user = req.user;
 
-  return next();
+  next();
 });
 app.use('/admin', require('./admin'));
 
