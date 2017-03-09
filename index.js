@@ -79,11 +79,13 @@ app.get('/etape-1/confirmation/:email/:token', wrap(async (req, res) => {
 }));
 
 // Form for step 2
-app.get('/etape-2', (req,res) => {
+app.get('/etape-2', wrap(async (req,res) => {
   if (!req.session.email) return res.send(401);
 
-  res.render('step2', {email: req.session.email});
-});
+  var city = await redis.getAsync(`${req.session.email}:city`);
+
+  res.render('step2', {email: req.session.email, city});
+}));
 
 // Handle form, send emails to random people
 app.post('/etape-2', wrap(async (req, res) => {
@@ -99,6 +101,10 @@ app.post('/etape-2', wrap(async (req, res) => {
   }
 
   var zipcodes = ban.features.map(feature => (feature.properties.postcode));
+
+  if (await redis.incrAsync(`${req.session.email}:changes`) > 3) {
+    return res.status(403).send('Vous ne pouvez pas changer votre ville plusieurs fois.');
+  }
 
   await redis.setAsync(`${req.session.email}:city`, `${ban.features[0].properties.city} (${req.body.commune})`);
   await redis.setAsync(`${req.session.email}:zipcodes`, JSON.stringify(zipcodes));
