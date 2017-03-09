@@ -46,7 +46,7 @@ app.post('/etape-1', wrap(async (req, res, next) => {
   var emailURL = `${config.mails.step1}?EMAIL=${encodeURIComponent(req.body.email)}&LINK=${encodeURIComponent(validationLink)}`;
   var emailContent = await request(emailURL);
 
-  var mailOptions = Object.assign({to: req.body.email, subject: req.body.subject, html: emailContent}, config.emailOptions);
+  var mailOptions = Object.assign({to: req.body.email, subject: 'Votre procuration', html: emailContent}, config.emailOptions);
   mailer.sendMail(mailOptions, (err) => {
     if (err) return next(err);
 
