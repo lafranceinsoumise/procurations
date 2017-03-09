@@ -39,8 +39,11 @@ app.get('/', (req, res) => {
 app.post('/etape-1', wrap(async (req, res, next) => {
   if (!req.body.email || !validator.isEmail(req.body.email)) return res.send(400);
 
+  if (!await redis.getAsync(`${req.body.email}:token`)) {
+    await redis.lpushAsync('all', req.body.email);
+  }
+
   var token = uuid();
-  await redis.lpushAsync('all', req.body.email);
   await redis.setAsync(`${req.body.email}:token`, token);
   var validationLink = `${config.host}/etape-1/confirmation/${req.body.email}/${token}`;
   var emailURL = `${config.mails.step1}?EMAIL=${encodeURIComponent(req.body.email)}&LINK=${encodeURIComponent(validationLink)}`;
