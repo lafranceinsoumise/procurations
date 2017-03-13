@@ -1,11 +1,12 @@
 /* eslint-env browser, jquery */
 $(function() {
-  $('#commune-input').selectize({
+  var communeSelectize = $('#commune-input').selectize({
     load: function(query, callback) {
       if (!query.length) return callback();
-      console.log('http://api-adresse.data.gouv.fr/search/?q=' + query + '&type=municipality');
+      var url = 'https://api-adresse.data.gouv.fr/search/?q=' + query + '&type=municipality&limit=20';
+      url = $('#zipcode').length > 0 ? (url + '&postcode=' + $('#zipcode').val()) : url;
       $.ajax({
-        url: 'https://api-adresse.data.gouv.fr/search/?q=' + query + '&type=municipality&limit=20',
+        url: url,
         dataType: 'json',
         success: function(res) {
           var list = res.features.map(function(feature) {
@@ -24,4 +25,18 @@ $(function() {
     maxItems: 1,
     create: false
   });
+
+  if ($('#zipcode').length > 0) {
+    $('#zipcode').change(updateCommuneField);
+  }
+
+  updateCommuneField();
+
+  function updateCommuneField() {
+    if (!$('#zipcode').val() || $('#zipcode').val().length !== 5) {
+      communeSelectize[0].selectize.disable();
+    } else {
+      communeSelectize[0].selectize.enable();
+    }
+  }
 });
