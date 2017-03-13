@@ -12,9 +12,11 @@ block content
       Vous avez déjà indiqué chercher une procuration pour #{city}. Si vous souhaitez
       modifier votre ville, vous pouvez remplir ce formulaire à nouveau.
   form(action="/etape-2" method="POST")
-    .form-group
+    .form-group(class=errors && errors.commune ? "has-error" : "")
       label Commune d'inscription sur les listes électorales
       input#commune-input.form-control.input-block(type="text" name="commune" required)
+      if errors && errors.commune
+        span.help-block= errors.commune
       input.btn.btn-primary.btn-block(type="submit")
   script(src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous")
   script(src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.4/js/standalone/selectize.min.js" integrity="sha256-HyBiZFJAMvxOhZoWOc5LWIWaN1gcFi8LjS75BZF4afg=" crossorigin="anonymous")

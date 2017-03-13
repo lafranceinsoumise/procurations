@@ -28,9 +28,8 @@ $(function() {
 
   if ($('#zipcode').length > 0) {
     $('#zipcode').change(updateCommuneField);
+    updateCommuneField();
   }
-
-  updateCommuneField();
 
   function updateCommuneField() {
     if (!$('#zipcode').val() || $('#zipcode').val().length !== 5) {
