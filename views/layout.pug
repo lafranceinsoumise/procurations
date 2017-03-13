@@ -26,11 +26,11 @@ html
     meta(name="twitter:site" content="@JLM_2017")
     meta(name="twitter:image" content=config.host + "/public/background.jpg")
     meta(name="twitter:creator" content="@JLM_2017")
-  body(style="background-image: url('/public/background.jpg');")
+  body(style="background-image: url('/public/background.jpg');background-position:center;background-size: cover;")
     .container
       .row
         .col-responsive
           img.img-responsive(src="/public/logo.png")
       .row
-        .col-responsive(style="background-color: rgba(255,255,255,0.5);padding: 20px 15px;box-shadow:1px 1px 3px 2px rgba(0, 0, 0, 0.2)")
+        .col-responsive(style="background-color: rgba(255,255,255,0.85);padding: 20px 15px;box-shadow:1px 1px 3px 2px rgba(0, 0, 0, 0.2)")
           block content
