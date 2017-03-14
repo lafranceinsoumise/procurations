@@ -1,3 +1,4 @@
+const base32 = require('thirty-two')
 const bluebird = require('bluebird');
 const bodyParser = require('body-parser');
 const express = require('express');
@@ -153,23 +154,46 @@ app.get('/etape-2/confirmation', (req, res) => {
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.get('/login', (req, res) => {
-  res.render('login');
-});
-app.use('/login', passport.authenticate('local', {successRedirect: '/admin', failureRedirect: '/login'}));
 app.get('/logout', (req, res) => {
   req.logout();
   res.redirect('/');
 });
+app.get('/login', (req, res) => {
+  res.render('login');
+});
+app.post('/login', passport.authenticate('local', {successRedirect: '/login-totp', failureRedirect: '/login'}));
 app.use('/', (req, res, next) => {
-  if (!req.user && process.env.NODE_ENV !== 'test') res.redirect('/login');
-  if (!req.user && process.env.NODE_ENV === 'test') req.user = 'test';
-
-  res.locals.user = req.user;
+  if (!req.user && process.env.NODE_ENV !== 'test') return res.redirect('/login');
 
   next();
 });
-app.use('/admin', require('./admin'));
+app.get('/login-totp', wrap(async (req, res) => {
+  var qrImage = false;
+
+  if (!await redis.getAsync(`totp:${req.user}:valid`)) {
+    var key = (await redis.getAsync(`totp:${req.user}`)) || uuid();
+
+    var otpUrl = `otpauth://totp/Procurations%20JLM2017:${req.user}?secret=${base32.encode(key)}&period=30`;
+    qrImage = `https://chart.googleapis.com/chart?chs=166x166&chld=L|0&cht=qr&chl=${encodeURIComponent(otpUrl)}`;
+    await redis.setAsync(`totp:${req.user}`, key);
+  }
+
+  res.render('loginTotp', {qrImage});
+}));
+app.post('/login-totp', passport.authenticate('totp', {failureRedirect: '/login-totp'}), wrap(async (req, res) => {
+  req.session.totp = true;
+  await redis.setAsync(`totp:${req.user}:valid`, true);
+
+  res.redirect('/admin');
+}));
+
+app.use('/admin', wrap(async (req, res, next) => {
+  if (!req.session.totp && process.env.NODE_ENV !== 'test') return res.redirect('/login-totp');
+  if (process.env.NODE_ENV === 'test') req.user = 'test';
+  res.locals.user = req.user;
+
+  return next();
+}), require('./admin'));
 
 app.listen(process.env.PORT || 3000, '127.0.0.1', (err) => {
   if (err) return console.error(err);

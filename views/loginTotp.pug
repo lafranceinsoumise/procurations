@@ -1,0 +1,13 @@
+extends layout.pug
+
+block content
+  if qrImage
+    p.text-center.
+      Enregistrez la clé dans votre application d'OTP&nbsp:
+    p.text-center
+      img(src=qrImage)
+  form.form(method="POST")
+    .form-group
+      label Code
+      input.form-control(type="text" name="code")
+    input.btn.btn-primary.pull-right(type="submit")
