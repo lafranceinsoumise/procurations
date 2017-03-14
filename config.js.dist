@@ -15,7 +15,9 @@ module.exports = {
     }
   ],
   mails: {
-    step1: 'https://htmlcontent'
+    step1: 'https://htmlcontent',
+    invitation: 'https://htmlcontent',
+    confirmation: 'https://htmlcontent'
   },
   secret: 'cat keyboard',
   redisPrefix: 'jlm2017:procurations:',
