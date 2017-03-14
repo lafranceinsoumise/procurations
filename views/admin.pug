@@ -1,22 +1,28 @@
 extends layout.pug
 
-block content
-  a.btn.btn-primary.pull-right(href="/logout") Se déconnecter
-  ul
-    li Total&nbsp;: #{total}
-  nav(aria-label="Page navigation")
-    ul.pagination
-      - var page = 1
-      while page < total/100 + 1
-        li
-          a(href='/admin/' + page)= page++
-  table.table
-    tr
-      th Email
-      th Valide
-      th Ville (Code INSEE)
-    each elem in list
-      tr
-        td= elem.email
-        td= elem.valid
-        td= elem.city
+block large_content
+  .row
+    .col-xs-12(style="background-color: rgba(255,255,255,0.85);padding: 20px 15px;box-shadow:1px 1px 3px 2px rgba(0, 0, 0, 0.2)")
+      a.btn.btn-primary.pull-right(href="/logout") Se déconnecter
+      ul
+        li Total&nbsp;: #{total}
+      nav.text-center(aria-label="Page navigation")
+        ul.pagination
+          - var page = 1
+          while page < total/100 + 1
+            li
+              a(href='/admin/' + page)= page++
+      table.table
+        tr
+          th Email
+          th Valide
+          th Ville (Code INSEE)
+          th Match
+          th Procuration faite
+        each elem in list
+          tr
+            td= elem.email
+            td= elem.valid
+            td= elem.city
+            td= elem.match
+            td= elem.posted

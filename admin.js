@@ -23,7 +23,15 @@ router.get('/:page?', wrap(async (req, res) => {
       var city = await redis.getAsync(`${email}:city`);
     }
 
-    return {email, valid, city};
+    if (city) {
+      var matching = await redis.getAsync(`${email}:match`);
+    }
+
+    if (matching) {
+      var posted = await redis.getAsync(`${email}:matching`);
+    }
+
+    return {email, valid, city, matching, posted};
   }));
 
   var total = await redis.llenAsync('all');

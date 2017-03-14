@@ -31,9 +31,10 @@ html
       .row
         .col-responsive
           img.img-responsive(src="/public/logo.png")
-      .row
-        .col-responsive(style="background-color: rgba(255,255,255,0.85);padding: 20px 15px;box-shadow:1px 1px 3px 2px rgba(0, 0, 0, 0.2)")
-          block content
+      block large_content
+        .row
+          .col-responsive(style="background-color: rgba(255,255,255,0.85);padding: 20px 15px;box-shadow:1px 1px 3px 2px rgba(0, 0, 0, 0.2)")
+            block content
     .container-fluid(style="height:40px;padding-top:10px;")
       p.small.text-right.text-muted.
         Fond&nbsp;: Ksiamon (Own work) [<a href="http://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a>], <a href="https://commons.wikimedia.org/wiki/File%3ACarte_%C3%A9lectorale_Vote_France.JPG">via Wikimedia Commons</a>
