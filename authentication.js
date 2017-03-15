@@ -1,11 +1,8 @@
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const TotpStrategy = require('passport-totp').Strategy;
-const redisPkg = require('redis');
 
-const config = require('./config');
-var redis = redisPkg.createClient({prefix: config.redisPrefix});
-
+var redis = require('./index').redis;
 const users = require('./config').users;
 
 passport.use(new LocalStrategy((username, password, done) => {

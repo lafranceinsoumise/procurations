@@ -1,4 +1,4 @@
-const base32 = require('thirty-two')
+const base32 = require('thirty-two');
 const bluebird = require('bluebird');
 const bodyParser = require('body-parser');
 const express = require('express');
@@ -14,13 +14,14 @@ bluebird.promisifyAll(redisPkg.RedisClient.prototype);
 bluebird.promisifyAll(redisPkg.Multi.prototype);
 
 const config = require('./config');
-var passport = require('./authentication');
 var RedisStore = require('connect-redis')(session);
 var redis = redisPkg.createClient({prefix: config.redisPrefix});
 var mailer = nodemailer.createTransport(config.emailTransport);
+module.exports = ({redis, mailer});
+var passport = require('./authentication');
 
 var app = express();
-var wrap = module.exports = fn => (...args) => fn(...args).catch(args[2]);
+var wrap = fn => (...args) => fn(...args).catch(args[2]);
 
 app.locals.config = config;
 app.set('views', './views');
@@ -55,17 +56,29 @@ app.post('/etape-1', wrap(async (req, res, next) => {
     return res.redirect('/');
   }
 
-  if (!await redis.getAsync(`${req.body.email}:token`)) {
+  // If email does not exist, push in the list
+  if (!await redis.exists(`${req.body.email}:valid`)) {
     await redis.lpushAsync('all', req.body.email);
   }
 
   var token = uuid();
-  await redis.setAsync(`${req.body.email}:token`, token);
-  var validationLink = `${config.host}/etape-1/confirmation/${req.body.email}/${token}`;
-  var emailURL = `${config.mails.step1}?EMAIL=${encodeURIComponent(req.body.email)}&LINK=${encodeURIComponent(validationLink)}`;
-  var emailContent = await request(emailURL);
+  await redis.setAsync(token, req.body.email);
+  await redis.setAsync(`${req.body.email}:valid`, false);
 
-  var mailOptions = Object.assign({to: req.body.email, subject: 'Votre procuration', html: emailContent}, config.emailOptions);
+  var emailContent = await request({
+    uri: config.mails.step1,
+    qs: {
+      EMAIL: req.body.email,
+      LINK: `${config.host}/etape-1/confirmation/${token}`
+    }
+  });
+
+  var mailOptions = Object.assign({
+    to: req.body.email,
+    subject: 'Votre procuration',
+    html: emailContent
+  }, config.emailOptions);
+
   mailer.sendMail(mailOptions, (err) => {
     if (err) return next(err);
 
@@ -79,8 +92,9 @@ app.get('/etape-1/confirmation', (req, res) => {
 });
 
 // Validate email address with token
-app.get('/etape-1/confirmation/:email/:token', wrap(async (req, res) => {
-  if (req.params.token !== await redis.getAsync(`${req.params.email}:token`)) {
+app.get('/etape-1/confirmation/:token', wrap(async (req, res) => {
+  var email = await redis.getAsync(req.params.token);
+  if (!email) {
     return res.status(401).render('step2Invalid', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
       avez demandé et reçu un autre lien plus récement. Merci de vérifier dans\
@@ -88,8 +102,8 @@ app.get('/etape-1/confirmation/:email/:token', wrap(async (req, res) => {
     });
   }
 
-  req.session.email = req.params.email;
-  await redis.setAsync(`${req.params.email}:valid`, true);
+  req.session.email = email;
+  await redis.setAsync(`${email}:valid`, true);
 
   res.redirect('/etape-2');
 }));
@@ -106,26 +120,32 @@ app.get('/etape-2', wrap(async (req,res) => {
   var errors = req.session.errors;
   delete req.session.errors;
 
-  var city = await redis.getAsync(`${req.session.email}:city`);
+  var city = (await redis.getAsync(`${req.session.email}:city`));
 
   res.render('step2', {email: req.session.email, city, errors});
 }));
 
 // Handle form, send emails to random people
 app.post('/etape-2', wrap(async (req, res) => {
-  if (!req.body.commune)  {
+  if (!req.body.commune)  { // req.body.commun should be city code INSEE
     req.session.errors = {};
     req.session.errors['commune'] = 'Ce champ ne peut être vide.';
 
     return res.redirect('/etape-2');
   }
 
+  // Get city zipcodes
   var ban = await request({
-    uri: `https://api-adresse.data.gouv.fr/search/?q=${req.body.commune}&type=municipality&citycode=${req.body.commune}`,
+    uri: 'https://api-adresse.data.gouv.fr/search/',
+    qs: {
+      q: req.body.commune,
+      type: 'municipality',
+      citycode: req.body.commune
+    },
     json: true
   });
 
-  if (!ban.features.length) {
+  if (!ban.features.length) { // if city does not exist, return to the form
     req.session.errors = {};
     req.session.errors['commune'] = 'Commune inconnue.';
 
@@ -134,6 +154,7 @@ app.post('/etape-2', wrap(async (req, res) => {
 
   var zipcodes = ban.features.map(feature => (feature.properties.postcode));
 
+  // Increment number of change so it cannot be greater than 3
   if (await redis.incrAsync(`${req.session.email}:changes`) > 3) {
     req.session.errors = {};
     req.session.errors['commune'] = 'Vous ne pouvez pas changer de commune plusieurs fois.';
@@ -141,8 +162,9 @@ app.post('/etape-2', wrap(async (req, res) => {
     return res.redirect('/etape-2');
   }
 
-  await redis.setAsync(`${req.session.email}:city`, `${ban.features[0].properties.city} (${req.body.commune})`);
+  await redis.setAsync(`${req.session.email}:city`, `${ban.features[0].properties.city} (${ban.features[0].properties.context})`);
   await redis.setAsync(`${req.session.email}:zipcodes`, JSON.stringify(zipcodes));
+  await redis.setAsync(`${req.session.email}:insee`, ban.features[0].properties.citycode);
 
   res.redirect('/etape-2/confirmation');
 }));
