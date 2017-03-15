@@ -11,7 +11,7 @@ router.get('/:page?', wrap(async (req, res) => {
   var list = await redis.lrangeAsync('all', perPage * (page - 1), perPage * page - 1);
 
   list = await Promise.all(list.map(async (email) => {
-    var valid = await redis.existsAsync(`${email}:valid`);
+    var valid = await redis.getAsync(`${email}:valid`);
 
     if (valid) {
       var city = await redis.getAsync(`${email}:city`);
