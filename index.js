@@ -103,7 +103,7 @@ app.get('/etape-1/confirmation/:token', wrap(async (req, res) => {
   }
 
   req.session.email = email;
-  await redis.setAsync(`${email}:valid`, true);
+  await redis.setAsync(`${email}:valid`, new Date());
 
   res.redirect('/etape-2');
 }));
