@@ -1,0 +1,23 @@
+extends layout.pug
+
+block admin_content
+  p.
+    Total&nbsp;: #{total}
+  nav.text-center(aria-label="Page navigation")
+    ul.pagination
+      - var page = 1
+      while page < total/100 + 1
+        li
+          a(href='/admin/' + page)= page++
+  table.table
+    tr
+      th Email
+      th Date de l'invitation
+      th Commune
+      th Match
+    each elem in list
+      tr
+        td= elem.email
+        td= elem.date
+        td= elem.details && elem.details.commune
+        td= elem.matching

@@ -1,0 +1,35 @@
+extends layout.pug
+
+block admin_content
+  p.
+    Total&nbsp;: #{total}
+  nav.text-center(aria-label="Page navigation")
+    ul.pagination
+      - var page = 1
+      while page < total/100 + 1
+        li
+          a(href='/admin/' + page)= page++
+  table.table
+    tr
+      th Email
+      th Valide
+      th Ville
+      th Match
+      th
+    each elem in list
+      tr
+        td= elem.email
+        td= elem.valid
+        td= elem.commune
+        td= elem.matching
+        td
+          case elem.posted
+            when '3'
+              i.fa.fa-check(title="Confirmé")
+            when '1'
+              i.fa.fa-adjust.fa-rotate-180(title="Confirmé par le mandant")
+            when '2'
+              i.fa.fa-adjust(title="Confirmé par le mandataire")
+            default
+              i.fa.fa-close(title="Aucun")
+            

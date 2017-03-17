@@ -7,6 +7,7 @@ html
     link(href="https://jlm2017.github.io/theme/dist/theme.css", rel="stylesheet" crossorigin="anonymous")
     link(rel="canonical" href="https://procurations.jlm2017.fr/")
     link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.4/css/selectize.bootstrap3.min.css" integrity="sha256-xaHB15TZbLhew82A2NzY8rvCCp/REcOA/kSpWWO7TlE=" crossorigin="anonymous")
+    link(href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css", rel="stylesheet", integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN", crossorigin="anonymous")
     link(rel="icon" href="https://jlm2017.fr//app/uploads/2017/01/cropped-cropped-phi-32x32.png" sizes="32x32")
     link(rel="icon" href="https://jlm2017.fr//app/uploads/2017/01/cropped-cropped-phi-192x192.png" sizes="192x192")
     link(rel="apple-touch-icon-precomposed" href="https://jlm2017.fr//app/uploads/2017/01/cropped-cropped-phi-180x180.png")
@@ -26,7 +27,12 @@ html
     meta(name="twitter:site" content="@JLM_2017")
     meta(name="twitter:image" content=config.host + "/public/background.jpg")
     meta(name="twitter:creator" content="@JLM_2017")
-  body(style="background-image: url('/public/background.jpg');background-position:center;background-size: cover;")
+    style.
+      html, body {
+        min-height: 100%;
+        height: auto;
+      }
+  body(style="background-image: url('/public/background.jpg');background-position:center;background-size:cover;")
     .container(style="padding-bottom:40px;margin-bottom:-40px;min-height:100%;")
       .row
         .col-responsive

@@ -3,13 +3,13 @@ extends layout.pug
 block content
   p.lead.
     Merci&nbsp! Votre adresse email #{email} est bien confirmée.
-  unless city
+  unless commune
     p.lead.
       Dernière étape&nbsp;: choisissez ci-dessous votre commune, nous essaierons
       de trouver quelqu'un pouvant prendre votre procuration.
   else
     p.lead.
-      Vous avez déjà indiqué chercher une procuration pour #{city}. Si vous souhaitez
+      Vous avez déjà indiqué chercher une procuration pour #{commune}. Si vous souhaitez
       modifier votre ville, vous pouvez remplir ce formulaire à nouveau.
   form(action="/etape-2" method="POST")
     .form-group(class=errors && errors.commune ? "has-error" : "")
