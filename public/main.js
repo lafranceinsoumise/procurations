@@ -12,7 +12,7 @@ $(function() {
           var list = res.features.map(function(feature) {
             return {
               citycode: feature.properties.citycode,
-              label: feature.properties.city + ' (' + feature.properties.postcode + ')'
+              label: feature.properties.city + ', ' + feature.properties.context
             };
           });
           return callback(list);
