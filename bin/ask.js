@@ -17,7 +17,7 @@ async function askTenMorePeople(zipcodes) {
     let peoplePage;
     try {
       peoplePage = await getPeoplePage(zipcodes, page);
-      if (peoplePage.length === 0) continue;
+      if (peoplePage.length == 0) break;
     } catch (err) {
       return console.error('Can\'t get people from NationBuilder', err.stack);
     }
