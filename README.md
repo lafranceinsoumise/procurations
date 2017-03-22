@@ -14,6 +14,10 @@ $ npm start
 
 This project works well with [Mosaico standalone](https://github.com/jlm2017/mosaico-standalone) to create email templates.
 
+## Remerciements
+
+Ce site utilise la [base d'adresse nationale](http://adresse.data.gouv.fr/).
+
 ## Liste des clés Redis
 
 | Clé                          | Valeur
