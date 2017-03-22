@@ -49,7 +49,7 @@ async function getPeoplePage(zipcodes, page = 0) {
 
   return people._items.filter(person => person.email_opt_in).map(person => ({
     email: person.email,
-    zipcode: person.location.zipcode
+    zipcode: person.location.zip
   }));
 }
 
