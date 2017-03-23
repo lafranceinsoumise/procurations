@@ -13,7 +13,7 @@ var {redis, mailer} = require('./match');
 async function askTenMorePeople(zipcodes) {
   var people = [];
   // Iterate API pages to find 10 people with no pending invitation
-  for (var page = 0; people.length < 10; page++) {
+  for (var page = 1; people.length < 10; page++) {
     let peoplePage;
     try {
       peoplePage = await getPeoplePage(zipcodes, page);
