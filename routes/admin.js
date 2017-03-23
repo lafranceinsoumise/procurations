@@ -58,7 +58,7 @@ router.get('/:type/:page?', wrap(async (req, res) => {
 
   var total = await redis.llenAsync(`${req.params.type}:all`);
 
-  res.render('admin/offers', {list, total});
+  res.render('admin/offers', {list, total, type: req.params.type});
 }));
 
 module.exports = router;
