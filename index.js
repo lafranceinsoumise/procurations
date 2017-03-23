@@ -2,6 +2,7 @@ const base32 = require('thirty-two');
 const bluebird = require('bluebird');
 const bodyParser = require('body-parser');
 const express = require('express');
+const htmlToText = require('nodemailer-html-to-text').htmlToText;
 const morgan = require('morgan');
 const nodemailer = require('nodemailer');
 const redisPkg = require('redis');
@@ -17,6 +18,7 @@ const config = require('./config');
 var RedisStore = require('connect-redis')(session);
 var redis = redisPkg.createClient({prefix: config.redisPrefix});
 var mailer = nodemailer.createTransport(config.emailTransport);
+mailer.use('compile', htmlToText());
 module.exports = ({redis, mailer, consts: {requestHasConfirm, offerHasConfirm}});
 var passport = require('./authentication');
 
