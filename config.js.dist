@@ -18,7 +18,8 @@ module.exports = {
     step1: 'https://htmlcontent',
     invitation: 'https://htmlcontent',
     requestMatch: 'https://htmlcontent',
-    offerMatch: 'https://htmlcontent'
+    offerMatch: 'https://htmlcontent',
+    matchInformations: 'https://htmlcontent'
   },
   secret: 'cat keyboard',
   redisPrefix: 'jlm2017:procurations:',

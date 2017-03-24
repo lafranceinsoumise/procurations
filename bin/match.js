@@ -96,6 +96,10 @@ async function match(requestEmail, offerEmail) {
 
   token = uuid();
   await redis.setAsync(`offers:confirmations:${token}`, offerEmail);
+  var address = `${offer.address1}<br>`;
+  if (offer.address2) address += `${offer.address1}<br>`;
+  address += `${offer.zipcode}<br>${commune}`;
+
   var mail2Options = Object.assign({
     to: offerEmail,
     subject: 'Quelque veut que vous preniez sa procuration !',
@@ -106,6 +110,8 @@ async function match(requestEmail, offerEmail) {
         FIRST_NAME: offer.first_name,
         LAST_NAME: offer.last_name,
         COMMUNE: commune,
+        ADDRESS: address,
+        BIRTH_DATE: offer.date,
         LINK: `${config.host}/procuration/confirmation/${token}`
       },
     })

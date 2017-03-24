@@ -1,10 +1,11 @@
 const express = require('express');
 const moment = require('moment');
 const request = require('request-promise-native');
+const uuid = require('uuid/v4');
 const validator = require('validator');
 
-var redis = require('../index').redis;
-var consts = require('../index').consts;
+var {redis, mailer, consts} = require('../index');
+var config = require('../config');
 var router = express.Router();
 var wrap = fn => (...args) => fn(...args).catch(args[2]);
 
@@ -19,7 +20,7 @@ router.get('/procuration/:token', wrap(async (req, res) => {
     });
   }
 
-  if (await redis.getAsync(`offers:${req.session.email}:match`)) {
+  if (await redis.getAsync(`offers:${email}:match`)) {
     return res.status(401).render('errorMessage', {
       message: 'Un e-mail a déjà été envoyé à la personne qui souhaite vous\
       donner sa procuration. Elle vous contactera pour confirmation.'
@@ -124,7 +125,7 @@ router.get('/merci', (req, res) => {
   return res.render('procurationConfirm');
 });
 
-router.get('/procuration/confirmation/:token', wrap(async (req, res) => {
+router.get('/procuration/confirmation/:token', wrap(async (req, res, next) => {
   var email = await redis.getAsync(`offers:confirmations:${req.params.token}`);
   if (!email) {
     return res.status(401).render('errorMessage', {
@@ -134,11 +135,41 @@ router.get('/procuration/confirmation/:token', wrap(async (req, res) => {
     });
   }
 
-  email = await redis.getAsync(`offers:${email}:match`);
-  var flags = await redis.getAsync(`requests:${email}:posted`);
-  await redis.setAsync(`requests:${email}:posted`, flags | consts.offerHasConfirm);
+  var offer = JSON.parse(await redis.getAsync(`offers:${email}`));
+  var matchEmail = await redis.getAsync(`offers:${email}:match`);
+  var commune = await redis.getAsync(`requests:${matchEmail}:commune`);
 
-  return res.redirect('/confirmation');
+  var address = `${offer.address1}<br>`;
+  if (offer.address2) address += `${offer.address1}<br>`;
+  address += `${offer.zipcode}<br>${commune}`;
+
+  var token = uuid();
+  await redis.setAsync(`requests:confirmations:${token}`, matchEmail);
+  var mail2Options = Object.assign({
+    to: matchEmail,
+    subject: `${offer.first_name} ${offer.last_name} vous envoie les informations pour votre procuration !`,
+    html: await request({
+      url: config.mails.matchInformations,
+      qs: {
+        EMAIL: matchEmail,
+        FIRST_NAME: offer.first_name,
+        LAST_NAME: offer.last_name,
+        COMMUNE: commune,
+        ADDRESS: address,
+        BIRTH_DATE: offer.date,
+        LINK: `${config.host}/confirmation/${token}`
+      },
+    })
+  }, config.emailOptions);
+
+  mailer.sendMail(mail2Options, async (err) => {
+    if (err) next(err);
+
+    var flags = await redis.getAsync(`requests:${matchEmail}:posted`);
+    await redis.setAsync(`requests:${matchEmail}:posted`, flags | consts.offerHasConfirm);
+
+    return res.redirect('/confirmation');
+  });
 }));
 
 module.exports = router;
