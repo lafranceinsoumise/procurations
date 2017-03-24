@@ -24,7 +24,7 @@ block content
       if errors && errors.date
         span.help-block= errors.date
     .form-group(class=errors && errors.phone ? "has-error" : "")
-      label Numéro de téléphone portable
+      label Numéro de téléphone portable (important, il servira à vous contacter)
       input.form-control.input-block(type="text" name="phone" required value=form && !(errors && errors.phone) ? form.phone : '')
       if errors && errors.phone
         span.help-block= errors.phone
