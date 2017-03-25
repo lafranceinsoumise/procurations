@@ -36,7 +36,7 @@ router.get('/procuration/:token', wrap(async (req, res) => {
   return res.redirect('/procuration');
 }));
 
-router.use('/procuration', wrap(async (req, res, next) => {
+router.all('/procuration', wrap(async (req, res, next) => {
   if (!req.session.email) {
     return res.status(401).render('errorMessage', {
       message: 'Vous devez cliquer sur le lien dans le mail que vous avez reçu\
@@ -57,10 +57,6 @@ router.get('/procuration', (req, res) => {
 });
 
 router.post('/procuration', wrap(async (req, res) => {
-  if (!req.session.email) {
-    return res.sendStatus(401);
-  }
-
   req.session.errors = {};
   if (!req.body.first_name || !validator.isLength(req.body.first_name, {min: 1, max: 300})) {
     req.session.errors['first_name'] = 'Prénom invalide.';
