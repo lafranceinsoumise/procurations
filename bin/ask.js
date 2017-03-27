@@ -40,7 +40,7 @@ async function askTenMorePeople(zipcodes) {
  */
 async function getPeoplePage(zipcodes, page = 0) {
   var people = await request({
-    url: `https://api.jlm2017.fr/people?where={"location.zip":{"$in":${zipcodes}}}&page=${page}`,
+    url: `https://api.jlm2017.fr/people?where={"location.zip":{"$in":${zipcodes}},"_created":{"$lt":"Sun, 26 Mar 2017 23:59:59 GMT"}}&page=${page}`,
     headers: {
       Authorization: `Basic ${base64.encode(`${config.api_key}:`)}`
     },
