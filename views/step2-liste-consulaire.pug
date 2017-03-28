@@ -5,21 +5,20 @@ block content
     Merci&nbsp;! Votre adresse email #{email} est bien confirmée.
   unless commune
     p.lead.
-      Dernière étape&nbsp;: choisissez ci-dessous votre commune, nous essaierons
+      Dernière étape&nbsp;: choisissez ci-dessous la liste consulaire où vous êtes inscrits, nous essaierons
       de trouver quelqu'un pouvant prendre votre procuration.
   else
     p.lead.
       Vous avez déjà indiqué chercher une procuration pour #{commune}. Si vous souhaitez
-      modifier votre ville, vous pouvez remplir ce formulaire à nouveau.
-  form(action="/etape-2" method="POST")
+      vous inscrire plutôt sur une liste consulaire, vous pouvez remplir ce formulaire à nouveau.
+  form(action="/etape-2-liste-consulaire" method="POST")
     .form-group(class=errors && errors.commune ? "has-error" : "")
-      label Commune d'inscription sur les listes électorales
-      input#commune-input.form-control.input-block(type="text" name="commune" required)
-      if errors && errors.commune
-        span.help-block= errors.commune
+      label À quelle liste consulaire êtes-vous rattaché&middot;e&nbsp;?
+      input#consulat-input.form-control.input-block(type="text" name="liste" required)
+      if errors && errors.liste
+        span.help-block= errors.liste
       input.btn.btn-primary.btn-block(type="submit" value="Choisir")
-  p.text-right
-    a(class='button' href='/etape-2-liste-consulaire') Je suis inscrit&middot;e sur une liste consulaire&nbsp;?
+
   script(src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous")
   script(src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.4/js/standalone/selectize.min.js" integrity="sha256-HyBiZFJAMvxOhZoWOc5LWIWaN1gcFi8LjS75BZF4afg=" crossorigin="anonymous")
-  script(src="public/main.js")
+  script(src="public/consulatField.js")

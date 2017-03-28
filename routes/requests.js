@@ -153,6 +153,36 @@ router.get('/etape-2/confirmation', (req, res) => {
   res.render('end');
 });
 
+router.get('/etape-2-liste-consulaire', wrap(async (req,res) => {
+  var errors = req.session.errors;
+  delete req.session.errors;
+
+  var commune = (await redis.getAsync(`requests:${req.session.email}:commune`));
+
+  res.render('step2-liste-consulaire', {email: req.session.email, commune, errors});
+}));
+
+router.post('/etape-2-liste-consulaire', wrap(async (req, res, next) => {
+  if (!req.body.liste)  { // one should be filled
+    req.session.errors = {};
+    req.session.errors['liste'] = 'Ce champ ne peut être vide.';
+
+    return res.redirect('/step2-liste-consulaire');
+  }
+
+  var mailOptions = Object.assign({
+    to: config.lecDest,
+    subject: `Demande LEC (${req.session.email} - ${req.body.liste})`,
+    text: `Boujour,\n\nNouvelle demande de procuration de ${req.session.email} pour la liste ${req.body.liste}.`
+  }, config.emailOptions);
+
+  mailer.sendMail(mailOptions, (err) => {
+    if (err) return next(err);
+
+    res.redirect('/etape-2/confirmation');
+  });
+}));
+
 router.get('/confirmation/:token', wrap(async (req, res) => {
   var email = await redis.getAsync(`requests:confirmations:${req.params.token}`);
   if (!email) {
