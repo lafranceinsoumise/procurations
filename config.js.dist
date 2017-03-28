@@ -21,6 +21,7 @@ module.exports = {
     offerMatch: 'https://htmlcontent',
     matchInformations: 'https://htmlcontent'
   },
+  lecDest: 'procurations@jlm2017.fr'
   secret: 'cat keyboard',
   redisPrefix: 'jlm2017:procurations:',
   host: 'https://example.com',
