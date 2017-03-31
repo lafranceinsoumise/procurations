@@ -2,6 +2,7 @@ const base32 = require('thirty-two');
 const bluebird = require('bluebird');
 const bodyParser = require('body-parser');
 const express = require('express');
+const helmet = require('helmet');
 const htmlToText = require('nodemailer-html-to-text').htmlToText;
 const morgan = require('morgan');
 const nodemailer = require('nodemailer');
@@ -29,6 +30,7 @@ app.locals.config = config;
 app.set('views', './views');
 app.set('view engine', 'pug');
 app.get('env') === 'development' && app.use(morgan('dev'));
+app.use(helmet());
 app.use('/public', express.static('./public'));
 app.use(bodyParser.urlencoded({
   limit: '5kb',
