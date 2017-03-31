@@ -23,6 +23,7 @@ async function askTenMorePeople(zipcodes) {
     }
 
     for (var i = 0; i < peoplePage.length && people.length < 10; i++) {
+      if (peoplePage[i].bounced) continue;
       if (await redis.getAsync(`invitations:${peoplePage[i].email}:date`)) continue;
       if (await redis.getAsync(`requests:${peoplePage[i].email}:valid`)) continue;
       people.push(peoplePage[i]);
