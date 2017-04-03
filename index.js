@@ -29,6 +29,7 @@ var wrap = fn => (...args) => fn(...args).catch(args[2]);
 app.locals.config = config;
 app.set('views', './views');
 app.set('view engine', 'pug');
+app.enable('trust proxy');
 app.get('env') === 'development' && app.use(morgan('dev'));
 app.use(helmet());
 app.use('/public', express.static('./public'));

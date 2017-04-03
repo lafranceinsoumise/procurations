@@ -1,5 +1,6 @@
 const express = require('express');
 const request = require('request-promise-native');
+const RateLimit = require('express-rate-limit');
 const uuid = require('uuid/v4');
 const validator = require('validator');
 
@@ -7,6 +8,11 @@ var config = require('../config');
 var {redis, mailer, consts} = require('../index');
 var router = express.Router();
 var wrap = fn => (...args) => fn(...args).catch(args[2]);
+
+var limiter = new RateLimit({
+  windowMs: 60*1000, // 15 minutes
+  max: 3
+});
 
 router.get('/', (req, res) => {
   var errors = req.session.errors;
@@ -16,7 +22,7 @@ router.get('/', (req, res) => {
 });
 
 // Handle form, create token to validate email adress and send link by email
-router.post('/etape-1', wrap(async (req, res, next) => {
+router.post('/etape-1', limiter, wrap(async (req, res, next) => {
   if (!req.body.email || !validator.isEmail(req.body.email)) {
     req.session.errors = {};
     req.session.errors['email'] = 'Email invalide.';
