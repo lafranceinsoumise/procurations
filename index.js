@@ -13,8 +13,7 @@ const uuid = require('uuid/v4');
 bluebird.promisifyAll(redisPkg.RedisClient.prototype);
 bluebird.promisifyAll(redisPkg.Multi.prototype);
 
-const requestHasConfirm = 0b0001;
-const offerHasConfirm = 0b0010;
+const {requestHasConfirm, offerHasConfirm} = require('./constants');
 const config = require('./config');
 var RedisStore = require('connect-redis')(session);
 var redis = redisPkg.createClient({prefix: config.redisPrefix});

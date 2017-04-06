@@ -19,7 +19,7 @@ async function askTenMorePeople(zipcodes) {
       peoplePage = await getPeoplePage(zipcodes, page);
       if (peoplePage.length == 0) break;
     } catch (err) {
-      return console.error('Can\'t get people from NationBuilder', err.stack);
+      return console.error('Can\'t get people from api.jlm2017.fr\n', err.stack);
     }
 
     for (var i = 0; i < peoplePage.length && people.length < 10; i++) {

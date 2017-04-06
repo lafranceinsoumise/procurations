@@ -8,6 +8,7 @@ bluebird.promisifyAll(redisPkg.RedisClient.prototype);
 bluebird.promisifyAll(redisPkg.Multi.prototype);
 
 const config = require('../config');
+const constants = require('../constants');
 var redis = redisPkg.createClient({prefix: config.redisPrefix});
 var mailer = nodemailer.createTransport(config.emailTransport);
 module.exports = ({redis, mailer});
@@ -15,11 +16,55 @@ module.exports = ({redis, mailer});
 const askTenMorePeople = require('./ask');
 
 
+function dateDiffInDays(a, b) {
+  // Discard the time and time-zone information.
+  var utc2 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  var utc1 = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+
+  return Math.floor((utc2 - utc1) /1000/3600/24);
+}
+
+async function mailReminder(email, matchedEmail) {
+
+  var date =  new Date(await redis.getAsync(`requests:${email}:matchDate`));
+  var now = new Date();
+
+  if (dateDiffInDays(now, date) === 0 || dateDiffInDays(now, date) % 3 !== 0) {
+    return ;
+  }
+
+  var commune = await redis.getAsync(`requests:${email}:commune`);
+  var offer = JSON.parse(await redis.getAsync(`offers:${matchedEmail}`));
+
+  var posted = await redis.getAsync(`requests:${email}:posted`);
+  const requestConfirmed = posted & constants.requestHasConfirm;
+  const offerConfirmed = posted & constants.offerHasConfirm;
+  if (!posted || (requestConfirmed && !offerConfirmed)) {
+    var mailOptions = Object.assign({
+      to: email, // list of receivers
+      subject: 'N\'oubliez pas de prendre contact avec votre mandataire !', // Subject line
+      html: await request({
+        url: config.mails.requestMatchReminder,
+        qs: {
+          EMAIL: matchedEmail,
+          PHONE: offer.phone,
+          FIRST_NAME: offer.first_name,
+          COMMUNE: commune,
+        }
+      })
+    }, config.emailOptions);
+    mailer.sendMail(mailOptions, (err) => {
+      if (err) console.error(err.stack);
+    });
+  }
+}
+
 // Iterate people looking for offers
 async function iterate() {
   console.log('new iteration of all requests');
   var cursor = 0;
   var emails;
+  var matchedEmail;
 
   // Iterate redis SCAN
   for(;;) {
@@ -28,7 +73,10 @@ async function iterate() {
     for (var i = 0; i < emails.length; i++) {
       var email = emails[i].match(`${config.redisPrefix}requests:(.*):zipcodes`)[1];
       // If already matched, skip
-      if (await redis.getAsync(`requests:${email}:match`)) continue;
+      if ((matchedEmail = await redis.getAsync(`requests:${email}:match`))) {
+        await mailReminder(email, matchedEmail);
+        continue;
+      }
 
       // Find someoneInTheQueue
       var insee = await redis.getAsync(`requests:${email}:insee`);

@@ -18,6 +18,7 @@ module.exports = {
     step1: 'https://htmlcontent',
     invitation: 'https://htmlcontent',
     requestMatch: 'https://htmlcontent',
+    requestMatchReminder: 'https://htmlcontent',
     offerMatch: 'https://htmlcontent',
     matchInformations: 'https://htmlcontent'
   },

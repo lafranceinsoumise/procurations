@@ -23,13 +23,11 @@ block admin_content
         td= elem.commune
         td= elem.matching
         td
-          case elem.posted
-            when '3'
-              i.fa.fa-check(title="Confirmé")
-            when '1'
-              i.fa.fa-adjust.fa-rotate-180(title="Confirmé par le mandant")
-            when '2'
-              i.fa.fa-adjust(title="Confirmé par le mandataire")
-            default
-              i.fa.fa-close(title="Aucun")
-            
+          if elem.requestConfirmed && elem.offerConfirmed
+            i.fa.fa-check(title="Confirmé")
+          else if elem.requestConfirmed
+            i.fa.fa-adjust.fa-rotate-180(title="Confirmé par le mandant")
+          else if elem.offerConfirmed
+            i.fa.fa-adjust(title="Confirmé par le mandataire")
+          else
+            i.fa.fa-close(title="Aucun")

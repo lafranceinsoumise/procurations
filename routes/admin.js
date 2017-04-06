@@ -1,5 +1,6 @@
 const express = require('express');
 
+const {requestHasConfirm, offerHasConfirm} = require('../constants');
 var redis = require('../index').redis;
 var router = express.Router();
 var wrap = fn => (...args) => fn(...args).catch(args[2]);
@@ -27,7 +28,10 @@ router.get('/requests/:page?', wrap(async (req, res) => {
       var posted = await redis.getAsync(`requests:${email}:posted`);
     }
 
-    return {email, valid, commune, matching, posted};
+    var requestConfirmed = posted & requestHasConfirm;
+    var offerConfirmed = posted & offerHasConfirm;
+
+    return {email, valid, commune, matching, requestConfirmed, offerConfirmed};
   }));
 
   var total = await redis.llenAsync('requests:all');
