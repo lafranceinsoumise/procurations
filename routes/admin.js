@@ -17,7 +17,8 @@ router.get('/requests/:page?', wrap(async (req, res) => {
     var valid = await redis.getAsync(`requests:${email}:valid`);
 
     if (valid) {
-      var commune = await redis.getAsync(`requests:${email}:commune`);
+      var insee = await redis.getAsync(`requests:${email}:insee`);
+      var commune = JSON.parse(await redis.getAsync(`commune:${insee}`)).completeName;
     }
 
     if (commune) {

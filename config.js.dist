@@ -18,10 +18,13 @@ module.exports = {
     step1: 'https://htmlcontent',
     invitation: 'https://htmlcontent',
     requestMatch: 'https://htmlcontent',
-    requestMatchReminder: 'https://htmlcontent',
     offerMatch: 'https://htmlcontent',
-    matchInformations: 'https://htmlcontent'
+    matchInformations: 'https://htmlcontent',
+    requestContactReminder: 'https://htmlcontent',
+    requestProcurationReminder: '',
+    offerNoOfferConfirmationReminder: '''
   },
+  recontactAfterDays: 8,
   lecDest: 'procurations@jlm2017.fr',
   secret: 'cat keyboard',
   redisPrefix: 'jlm2017:procurations:',

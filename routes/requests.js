@@ -5,6 +5,8 @@ const uuid = require('uuid/v4');
 const validator = require('validator');
 
 var config = require('../config');
+const {checkRequestCancelToken} = require('../lib/tokens');
+const {saveCityInformation, cancelMatch} = require('../lib/actions');
 var {redis, mailer, consts} = require('../index');
 var router = express.Router();
 var wrap = fn => (...args) => fn(...args).catch(args[2]);
@@ -71,7 +73,7 @@ router.get('/etape-1/confirmation/:token', wrap(async (req, res) => {
   if (!email) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
-      avez demandé et reçu un autre lien plus récement. Merci de vérifier dans\
+      avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
       votre boîte mail.'
     });
   }
@@ -138,6 +140,9 @@ router.post('/etape-2', wrap(async (req, res) => {
   }
 
   var zipcodes = ban.features.map(feature => (feature.properties.postcode));
+  const insee = ban.features[0].properties.citycode;
+  const name = ban.features[0].properties.city;
+  const context = ban.features[0].properties.context;
 
   // Increment number of change so it cannot be greater than 3
   if (await redis.incrAsync(`requests:${req.session.email}:changes`) > 3) {
@@ -147,9 +152,10 @@ router.post('/etape-2', wrap(async (req, res) => {
     return res.redirect('/etape-2');
   }
 
-  await redis.setAsync(`requests:${req.session.email}:commune`, `${ban.features[0].properties.city} (${ban.features[0].properties.context})`);
-  await redis.setAsync(`requests:${req.session.email}:zipcodes`, JSON.stringify(zipcodes));
-  await redis.setAsync(`requests:${req.session.email}:insee`, ban.features[0].properties.citycode);
+  await saveCityInformation(insee, {name, context, zipcodes});
+  await redis.setAsync(`requests:${req.session.email}:insee`, insee);
+  // LEGACY
+  await redis.setAsync(`requests:${req.session.email}:commune`, `${name} (${context})`);
 
   res.redirect('/etape-2/confirmation');
 }));
@@ -194,7 +200,7 @@ router.get('/confirmation/:token', wrap(async (req, res) => {
   if (!email) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
-      avez demandé et reçu un autre lien plus récement. Merci de vérifier dans\
+      avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
       votre boîte mail.'
     });
   }
@@ -203,6 +209,50 @@ router.get('/confirmation/:token', wrap(async (req, res) => {
   await redis.setAsync(`requests:${email}:posted`, flags | consts.requestHasConfirm);
 
   return res.redirect('/confirmation');
+}));
+
+
+router.get('/annulation/:token', wrap(async (req, res) => {
+  try{
+    await checkRequestCancelToken(req.params.token);
+    return res.render('annulation');
+  } catch (err) {
+    return res.status(401).render('errorMessage', {
+      message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
+      avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
+      votre boîte mail.'
+    });
+  }
+
+
+}));
+
+router.post('/annulation/:token', wrap(async (req, res) => {
+  if (!('type' in req.body)) {
+    return res.statusCode(400).end();
+  }
+
+  let requestEmail, offerEmail;
+
+  try {
+    [requestEmail, offerEmail] = await checkRequestCancelToken(req.params.token);
+  } catch(err) {
+    return res.status(401).render('errorMessage', {
+      message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
+      avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
+      votre boîte mail.'
+    });
+  }
+
+  await cancelMatch(requestEmail, offerEmail);
+
+  // supprimer le mandant si l'utilisateur l'a demandé
+  if(req.body.type === 'delete') {
+    await redis.delAsync(`requests:${requestEmail}:insee`);
+  }
+
+  return res.render('annulationConfirmation.pug', {deleted: req.body.type === 'delete'});
+
 }));
 
 module.exports = router;

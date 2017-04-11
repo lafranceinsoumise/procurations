@@ -1,0 +1,12 @@
+extends layout.pug
+
+block content
+  p.
+    Souhaitez-vous :
+  form(method="POST")
+    .btn-group-lg
+      button.btn.btn-primary(name="type" value="other").
+        Je souhaite être mis en contact avec un autre mandataire
+
+      button.btn.btn-warning(name="type" value="delete").
+        Je n'ai plus besoin de procuration

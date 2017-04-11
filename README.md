@@ -28,7 +28,6 @@ Ce site utilise la [base d'adresse nationale](http://adresse.data.gouv.fr/).
 |requests:[email]:valid        | `false` ou une date si le lien de validation a été cliqué
 |requests:[email]:commune      | Ville de la personne (texte)
 |requests:[email]:insee        | Code INSEE de la personne
-|requests:[email]:zipcodes     | Codes postaux correspondant (tableau JSON)
 |requests:[email]:match        | Email du match si trouvé
 |requests:[email]:matchDate    | Date où le mail de match a été envoyé
 |requests:confirmations:[token]| token de confirmation
@@ -41,3 +40,5 @@ Ce site utilise la [base d'adresse nationale](http://adresse.data.gouv.fr/).
 |offers:[email]                | infos en JSON : email, first_name, last_name, phone, date, zipcode, address1, address2, commune
 |offers:[email]:match          | email de la personne demandant procuration si match
 |offers:confirmations:[token]  | token de confirmation
+|commmune:[insee]              | données sur la commune, au format JSON, avec deux clés : `name` et `context`
+|code-postaux:[insee]          | le tableau des codes postaux de la sommune, en JSON

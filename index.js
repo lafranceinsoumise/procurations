@@ -1,23 +1,18 @@
 const base32 = require('thirty-two');
-const bluebird = require('bluebird');
 const bodyParser = require('body-parser');
 const express = require('express');
 const helmet = require('helmet');
 const htmlToText = require('nodemailer-html-to-text').htmlToText;
 const morgan = require('morgan');
-const nodemailer = require('nodemailer');
-const redisPkg = require('redis');
 const session = require('express-session');
 const uuid = require('uuid/v4');
 
-bluebird.promisifyAll(redisPkg.RedisClient.prototype);
-bluebird.promisifyAll(redisPkg.Multi.prototype);
+const redis = require('./lib/redis');
+const mailer = require('./lib/mailer');
 
 const {requestHasConfirm, offerHasConfirm} = require('./constants');
 const config = require('./config');
 var RedisStore = require('connect-redis')(session);
-var redis = redisPkg.createClient({prefix: config.redisPrefix});
-var mailer = nodemailer.createTransport(config.emailTransport);
 mailer.use('compile', htmlToText());
 module.exports = ({redis, mailer, consts: {requestHasConfirm, offerHasConfirm}});
 var passport = require('./authentication');

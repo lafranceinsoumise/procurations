@@ -1,10 +1,10 @@
 const express = require('express');
 const moment = require('moment');
 const request = require('request-promise-native');
-const uuid = require('uuid/v4');
 const validator = require('validator');
 
 var {redis, mailer, consts} = require('../index');
+const {generateRequestConfirmationLink, generateRequestCancelLink, checkOfferCancelToken} = require('../lib/tokens');
 var config = require('../config');
 var router = express.Router();
 var wrap = fn => (...args) => fn(...args).catch(args[2]);
@@ -15,7 +15,7 @@ router.get('/procuration/:token', wrap(async (req, res) => {
   if (!email) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
-      avez demandé et reçu un autre lien plus récement. Merci de vérifier dans\
+      avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
       votre boîte de réception.'
     });
   }
@@ -122,38 +122,40 @@ router.get('/merci', (req, res) => {
 });
 
 router.get('/procuration/confirmation/:token', wrap(async (req, res, next) => {
-  var email = await redis.getAsync(`offers:confirmations:${req.params.token}`);
-  if (!email) {
+  var offerEmail = await redis.getAsync(`offers:confirmations:${req.params.token}`);
+  if (!offerEmail) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
-      avez demandé et reçu un autre lien plus récement. Merci de vérifier dans\
+      avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
       votre boîte mail.'
     });
   }
 
-  var offer = JSON.parse(await redis.getAsync(`offers:${email}`));
-  var matchEmail = await redis.getAsync(`offers:${email}:match`);
-  var commune = await redis.getAsync(`requests:${matchEmail}:commune`);
+  var offer = JSON.parse(await redis.getAsync(`offers:${offerEmail}`));
+  var requestEmail = await redis.getAsync(`offers:${offerEmail}:match`);
+  var commune = await redis.getAsync(`requests:${requestEmail}:commune`);
 
   var address = `${offer.address1}<br>`;
   if (offer.address2) address += `${offer.address1}<br>`;
   address += `${offer.zipcode}<br>${commune}`;
 
-  var token = uuid();
-  await redis.setAsync(`requests:confirmations:${token}`, matchEmail);
+  const confirmationLink = await generateRequestConfirmationLink(requestEmail);
+  const cancelLink = await generateRequestCancelLink(requestEmail, offerEmail);
+
   var mail2Options = Object.assign({
-    to: matchEmail,
+    to: requestEmail,
     subject: `${offer.first_name} ${offer.last_name} vous envoie les informations pour votre procuration !`,
     html: await request({
       url: config.mails.matchInformations,
       qs: {
-        EMAIL: matchEmail,
+        EMAIL: requestEmail,
         FIRST_NAME: offer.first_name,
         LAST_NAME: offer.last_name,
         COMMUNE: commune,
         ADDRESS: address,
         BIRTH_DATE: offer.date,
-        LINK: `${config.host}/confirmation/${token}`
+        LINK: confirmationLink,
+        CANCEL_LINK: cancelLink
       },
     })
   }, config.emailOptions);
@@ -161,11 +163,34 @@ router.get('/procuration/confirmation/:token', wrap(async (req, res, next) => {
   mailer.sendMail(mail2Options, async (err) => {
     if (err) next(err);
 
-    var flags = await redis.getAsync(`requests:${matchEmail}:posted`);
-    await redis.setAsync(`requests:${matchEmail}:posted`, flags | consts.offerHasConfirm);
+    var flags = await redis.getAsync(`requests:${requestEmail}:posted`);
+    await redis.setAsync(`requests:${requestEmail}:posted`, flags | consts.offerHasConfirm);
 
     return res.redirect('/confirmation');
   });
+}));
+
+router.get('/procuration/annulation/:token', wrap(async (req, res) => {
+  let requestEmail, offerEmail;
+
+  try {
+    [requestEmail, offerEmail] = await checkOfferCancelToken(req.params.token);
+  } catch(err) {
+    return res.status(401).render('errorMessage', {
+      message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
+      avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
+      votre boîte mail.'
+    });
+  }
+
+  await redis.batch()
+    .del(`requests:${requestEmail}:match`)
+    .del(`requests:${requestEmail}:matchDate`)
+    .del(`requests:${requestEmail}:posted`)
+    .del(`offers:${offerEmail}:match`)
+    .execAsync();
+
+  return res.render('annulation_offre');
 }));
 
 module.exports = router;
