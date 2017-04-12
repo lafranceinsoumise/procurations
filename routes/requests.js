@@ -154,6 +154,8 @@ router.post('/etape-2', wrap(async (req, res) => {
 
   await saveCityInformation(insee, {name, context, zipcodes});
   await redis.setAsync(`requests:${req.session.email}:insee`, insee);
+  // for statistics purpose
+  await redis.setAsync(`requests:${req.session.email}:date`, Date.now());
   // LEGACY
   await redis.setAsync(`requests:${req.session.email}:commune`, `${name} (${context})`);
 
