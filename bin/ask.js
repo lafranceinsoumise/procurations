@@ -40,11 +40,21 @@ async function askMorePeople(insee, count) {
     for (var i = 0; i < peoplePage.length && people.length < 10 * count; i++) {
       if (peoplePage[i].bounced) continue;
 
-      if (await redis.getAsync(`requests:${peoplePage[i].email}:valid`)) continue;
+      const [hasRequested, hasOffered, lastInvitation] = await redis.batch()
+        .get(`requests:${peoplePage[i].email}:valid`)
+        .get(`offers:${peoplePage[i].email}`)
+        .get(`invitations:${peoplePage[i].email}:date`)
+        .execAsync();
 
-      const last = await redis.getAsync(`invitations:${peoplePage[i].email}:date`);
-      if (last) {
-        let lastDate = new Date(last);
+      // on n'inclut pas les gens qui veulent donner leur procuration ou qui ont
+      // déjà proposé d'en prendre une
+      if (hasRequested || hasOffered) {
+        continue;
+      }
+
+      // on traite séparément les gens qui ont déjà reçu une invitation
+      if (lastInvitation) {
+        let lastDate = new Date(lastInvitation);
         if(dateDiffInDays(today, lastDate) >= config.recontactAfterDays) {
           alreadyContacted.push([lastDate.getTime(), peoplePage[i]]);
         }
@@ -173,7 +183,7 @@ async function mailReminder(requestEmail, offerEmail, insee) {
 
     var address = `${offer.address1}<br>`;
     if (offer.address2) address += `${offer.address1}<br>`;
-    address += `${offer.zipcode}<br>${commune}`;
+    address += `${offer.zipcode}<br>${'name' in commune ? commune.name : commune.completeName}`;
 
     const requestConfirmationLink = await generateRequestConfirmationLink(requestEmail);
     const requestCancelLink = await generateRequestCancelLink(requestEmail, offerEmail);
@@ -200,7 +210,6 @@ async function mailReminder(requestEmail, offerEmail, insee) {
       if (err) console.error(err.stack);
       await redis.setAsync(`reminder:procuration:${requestEmail}`, 1);
     });
-
   }
 
   // ce mail est envoyé au mandataire si le mandant n'est pas très réactif,

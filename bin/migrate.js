@@ -7,10 +7,10 @@ async function migrate() {
   let cursor = 0;
   let keys;
 
-  const cities = {};
+  const cities = new Map();
 
   for(;;) {
-    [cursor, keys] = redis.scan(cursor, 'MATCH', `${config.redisPrefix}requests:*:zipcodes`, 'COUNT', 99);
+    [cursor, keys] = await redis.scanAsync(cursor, 'MATCH', `${config.redisPrefix}requests:*:zipcodes`, 'COUNT', 99);
 
     for(let i = 0; i < keys.length; i++) {
       const email = keys[i].match(`^${config.redisPrefix}requests:(.*):zipcodes$`)[1];
@@ -20,8 +20,8 @@ async function migrate() {
         .get(`requests:${email}:commune`)
         .execAsync();
 
-      if(zipcodes && completeName) {
-        cities[insee] = {completeName, zipcodes};
+      if(zipcodes && completeName && !cities.has(insee)) {
+        cities.set(insee, {completeName, zipcodes});
       }
     }
 
@@ -30,10 +30,13 @@ async function migrate() {
     }
   }
 
-  for (let insee in cities) {
+  console.log(`found ${cities.size} different cities...`);
+  console.log('now inserting...');
+
+  for (let [insee, city] of cities) {
     await redis.batch()
-      .set(`commune:${insee}`, JSON.stringify({completeName: cities[insee].completeName}))
-      .set(`code-postaux:${insee}`, cities[insee].zipcodes)
+      .set(`commune:${insee}`, JSON.stringify({completeName: city.completeName}))
+      .set(`code-postaux:${insee}`, city.zipcodes)
       .execAsync();
   }
 
