@@ -30,6 +30,7 @@
     "bluebird": "^3.5.0",
     "body-parser": "^1.17.1",
     "connect-redis": "^3.2.0",
+    "csv-stringify": "^1.0.4",
     "express": "^4.15.2",
     "express-rate-limit": "^2.6.0",
     "express-session": "^1.15.1",
