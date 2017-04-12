@@ -11,6 +11,7 @@ const {askMorePeople, mailReminder} = require('./ask');
 
 // Iterate people looking for offers
 async function iterate() {
+  console.log(`Starting match.js : ${(new Date()).toISOString()}`);
   console.log('new iteration of all requests');
   var cursor = 0;
   var emails;
@@ -126,7 +127,8 @@ async function match(requestEmail, offerEmail, insee) {
 
 iterate()
   .then(() => {
-    console.log('iteration finished');
+    console.log(`match.js finished  ==> ${(new Date()).toISOString()}`);
+    console.log('----------------------------------------------');
 
     redis.quit();
   })
