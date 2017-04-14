@@ -51,7 +51,7 @@ async function iterate() {
       }
       countUnmatchedByCommune[insee].count += 1;
 
-      people_stringifier.write({insee, nom_ville, email, date: new Date(+requestDate).toISOString()});
+      people_stringifier.write({insee, nom_ville: nomVille, email, date: new Date(+requestDate).toISOString()});
     }
 
     if (cursor === '0') {
