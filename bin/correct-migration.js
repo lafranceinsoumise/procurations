@@ -23,7 +23,7 @@ async function correct() {
 
       if (date === wrongDate) {
         await redis.setAsync(`requests:${email}:date`, correctedTimestamp);
-        process.stdout.write(`\rModified ${k}`);
+        process.stdout.write(`\rModified ${++k}`);
       }
     }
 

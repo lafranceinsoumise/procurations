@@ -25,21 +25,27 @@ async function iterate() {
 
   // Iterate redis SCAN
   for (; ;) {
-    [cursor, emails] = await redis.scanAsync(cursor, 'MATCH', `${config.redisPrefix}requests:*:insee`, 'COUNT', '99');
+    [cursor, emails] = await redis.scanAsync(cursor, 'MATCH', `${config.redisPrefix}requests:*:valid`, 'COUNT', '99');
 
     for (var i = 0; i < emails.length; i++) {
-      var email = emails[i].match(`${config.redisPrefix}requests:(.*):insee`)[1];
+      var email = emails[i].match(`${config.redisPrefix}requests:(.*):valid`)[1];
 
-      const [insee, requestDate, match] = await redis.batch()
+      const [insee, valid, match] = await redis.batch()
           .get(`requests:${email}:insee`)
-          .get(`requests:${email}:date`)
+          .get(`requests:${email}:valid`)
           .get(`requests:${email}:match`)
           .execAsync();
 
       const nomVille = JSON.parse(await redis.getAsync(`commune:${insee}`)).completeName;
 
       // If already matched, skip
-      if (match || (+requestDate) > cutoffDate) {
+      if (match || valid === 'false') {
+        continue;
+      }
+
+      const requestDate = new Date(valid);
+
+      if(requestDate.getTime() > cutoffDate) {
         continue;
       }
 
@@ -51,7 +57,7 @@ async function iterate() {
       }
       countUnmatchedByCommune[insee].count += 1;
 
-      people_stringifier.write({insee, nom_ville: nomVille, email, date: new Date(+requestDate).toISOString()});
+      people_stringifier.write({insee, nom_ville: nomVille, email, date: requestDate.toISOString()});
     }
 
     if (cursor === '0') {
