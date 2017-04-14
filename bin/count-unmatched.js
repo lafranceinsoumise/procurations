@@ -25,10 +25,10 @@ async function iterate() {
 
   // Iterate redis SCAN
   for (; ;) {
-    [cursor, emails] = await redis.scanAsync(cursor, 'MATCH', `${config.redisPrefix}requests:*:valid`, 'COUNT', '99');
+    [cursor, emails] = await redis.scanAsync(cursor, 'MATCH', `${config.redisPrefix}requests:*:insee`, 'COUNT', '99');
 
     for (var i = 0; i < emails.length; i++) {
-      var email = emails[i].match(`${config.redisPrefix}requests:(.*):valid`)[1];
+      var email = emails[i].match(`${config.redisPrefix}requests:(.*):insee`)[1];
 
       const [insee, valid, match] = await redis.batch()
           .get(`requests:${email}:insee`)
@@ -51,7 +51,7 @@ async function iterate() {
 
       if (!countUnmatchedByCommune[insee]) {
         countUnmatchedByCommune[insee] = {
-          nom_ville: nomVille,
+          nomVille,
           count: 0
         };
       }
@@ -78,7 +78,7 @@ async function iterate() {
   for (let insee in countUnmatchedByCommune) {
     stringifier.write({
       insee,
-      nom: countUnmatchedByCommune[insee].nom,
+      nom_ville: countUnmatchedByCommune[insee].nomVille,
       count: countUnmatchedByCommune[insee].count
     });
   }
