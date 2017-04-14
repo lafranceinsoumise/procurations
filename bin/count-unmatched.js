@@ -5,12 +5,23 @@ const config = require('../config');
 const redis = require('../lib/redis');
 
 async function iterate() {
+  const beforeInHours = +process.argv[2];
+  const cutoffDate = Date.now() - beforeInHours * 3600 * 1000;
+
   console.log(`Starting match.js : ${(new Date()).toISOString()}`);
   console.log('new iteration of all requests');
   var cursor = 0;
   var emails;
 
-  const unmatchedRequestsByCommune = {};
+  const people_out = fs.createWriteStream('unmatched_people.csv');
+  const people_stringifier = stringify({
+    delimiter: ',',
+    columns: ['insee', 'nom_ville', 'email', 'date'],
+    header: true
+  });
+  people_stringifier.pipe(people_out);
+
+  const countUnmatchedByCommune = {};
 
   // Iterate redis SCAN
   for (; ;) {
@@ -19,20 +30,28 @@ async function iterate() {
     for (var i = 0; i < emails.length; i++) {
       var email = emails[i].match(`${config.redisPrefix}requests:(.*):insee`)[1];
 
-      var insee = await redis.getAsync(`requests:${email}:insee`);
+      const [insee, requestDate, match] = await redis.batch()
+          .get(`requests:${email}:insee`)
+          .get(`requests:${email}:date`)
+          .get(`requests:${email}:match`)
+          .execAsync();
+
+      const nomVille = JSON.parse(await redis.getAsync(`commune:${insee}`)).completeName;
 
       // If already matched, skip
-      if ((await redis.getAsync(`requests:${email}:match`))) {
+      if (match || (+requestDate) > cutoffDate) {
         continue;
       }
 
-      if (!unmatchedRequestsByCommune[insee]) {
-        unmatchedRequestsByCommune[insee] = {
-          nom: JSON.parse(await redis.getAsync(`commune:${insee}`)).completeName,
+      if (!countUnmatchedByCommune[insee]) {
+        countUnmatchedByCommune[insee] = {
+          nom_ville: nomVille,
           count: 0
         };
       }
-      unmatchedRequestsByCommune[insee].count += 1;
+      countUnmatchedByCommune[insee].count += 1;
+
+      people_stringifier.write({insee, nom_ville, email, date: new Date(+requestDate).toISOString()});
     }
 
     if (cursor === '0') {
@@ -40,21 +59,21 @@ async function iterate() {
     }
   }
 
-  const out = fs.createWriteStream('unmatched.csv');
+  const out = fs.createWriteStream('unmatched_count.csv');
 
   const stringifier = stringify({
     delimiter: ',',
-    columns: ['insee', 'nom', 'count'],
+    columns: ['insee', 'nom_ville', 'count'],
     header: true
   });
 
   stringifier.pipe(out);
 
-  for (let insee in unmatchedRequestsByCommune) {
+  for (let insee in countUnmatchedByCommune) {
     stringifier.write({
       insee,
-      nom: unmatchedRequestsByCommune[insee].nom,
-      count: unmatchedRequestsByCommune[insee].count
+      nom: countUnmatchedByCommune[insee].nom,
+      count: countUnmatchedByCommune[insee].count
     });
   }
 
