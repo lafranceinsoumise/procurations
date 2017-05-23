@@ -3,16 +3,19 @@ const moment = require('moment');
 const request = require('request-promise-native');
 const validator = require('validator');
 
-var {redis, mailer, consts} = require('../index');
-const {generateRequestConfirmationLink, generateRequestCancelLink, checkOfferCancelToken} = require('../lib/tokens');
+var {db, mailer} = require('../index');
+const {getCityInformation} = require('../lib/actions');
 var config = require('../config');
 var router = express.Router();
 var wrap = fn => (...args) => fn(...args).catch(args[2]);
 
-// Part for offers
-router.get('/procuration/:token', wrap(async (req, res) => {
-  var email = await redis.getAsync(`invitations:${req.params.token}`);
-  if (!email) {
+/**
+ * Le mandataire accepte l'invitation
+ * il va remplir ses informations pour être ajouté à la liste des offres
+ */
+router.get('/mandataire/:token', wrap(async (req, res) => {
+  var invitation = db.get('SELECT * FROM invitations WHERE token = ?', req.params.token);
+  if (!invitation) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
       avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
@@ -20,24 +23,24 @@ router.get('/procuration/:token', wrap(async (req, res) => {
     });
   }
 
-  if (await redis.getAsync(`offers:${email}:match`)) {
+  /*if (await db.get('SELECT * FROM matches WHERE invitation_id')) {
     return res.status(401).render('errorMessage', {
       message: 'Un e-mail a déjà été envoyé à la personne qui souhaite vous\
       donner sa procuration. Elle vous contactera pour confirmation.'
     });
-  }
+  }*/
 
-  req.session.email = email;
+  req.session.invitation = invitation;
 
-  if (await redis.getAsync(`offers:${email}:match`)) {
+  /*if (await redis.getAsync(`offers:${email}:match`)) {
     return res.redirect('/confirmation');
-  }
+  }*/
 
-  return res.redirect('/procuration');
+  return res.redirect('/mandataire');
 }));
 
-router.all('/procuration', wrap(async (req, res, next) => {
-  if (!req.session.email) {
+router.all('/mandataire', wrap(async (req, res, next) => {
+  if (!req.session.invitation && !req.session.request) {
     return res.status(401).render('errorMessage', {
       message: 'Vous devez cliquer sur le lien dans le mail que vous avez reçu\
       pour accéder à cette page.'
@@ -47,16 +50,20 @@ router.all('/procuration', wrap(async (req, res, next) => {
   next();
 }));
 
-router.get('/procuration', (req, res) => {
+/**
+ * Le futur mandataire rempli ses informations pour être ajouté à la liste
+ * des offres
+ */
+router.get('/mandataire', (req, res) => {
   var errors = req.session.errors;
   var form = req.session.form;
   delete req.session.errors;
   delete req.session.form;
 
-  res.render('procuration', {email: req.session.email, errors, form});
+  res.render('procuration', {email: req.session.invitation.email, errors, form});
 });
 
-router.post('/procuration', wrap(async (req, res) => {
+router.post('/mandataire', wrap(async (req, res) => {
   req.session.errors = {};
   if (!req.body.first_name || !validator.isLength(req.body.first_name, {min: 1, max: 300})) {
     req.session.errors['first_name'] = 'Prénom invalide.';
@@ -91,39 +98,52 @@ router.post('/procuration', wrap(async (req, res) => {
 
   if (Object.keys(req.session.errors).length > 0) {
     req.session.form = req.body;
-    return res.redirect('/procuration');
+    return res.redirect('/mandataire');
   }
 
   delete req.session.errors;
 
-  // if new offer, add in the list of the commune
-  if (!await redis.getAsync(`offers:${req.session.email}`)) {
-    await redis.rpushAsync(`offers:${req.body.commune}`, req.session.email);
-    await redis.rpushAsync('offers:all', req.session.email);
-  }
-
-  await redis.setAsync(`offers:${req.session.email}`, JSON.stringify({
-    email: req.session.email,
-    first_name: req.body.first_name,
-    last_name: req.body.last_name,
-    phone: req.body.phone,
-    date: req.body.date,
-    zipcode: req.body.zipcode,
-    address1: req.body.address1,
-    address2: req.body.address2,
-    commune: req.body.commune
-  }));
+  await db.run('INSERT OR REPLACE INTO offers (\
+    id,\
+    insee,\
+    first_name,\
+    last_name,\
+    phone,\
+    birth_date,\
+    zipcode,\
+    address1,\
+    address2\
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    req.session.invitation.id,
+    req.body.insee,
+    req.body.first_name,
+    req.body.last_name,
+    req.body.phone,
+    req.body.date,
+    req.body.zipcode,
+    req.body.address1,
+    req.body.address2
+  );
 
   return res.redirect('/merci');
 }));
 
+/**
+ * Page de remerciement, l'utilisateur quitte le site
+ */
 router.get('/merci', (req, res) => {
   return res.render('procurationConfirm');
 });
 
-router.get('/procuration/confirmation/:token', wrap(async (req, res, next) => {
-  var offerEmail = await redis.getAsync(`offers:confirmations:${req.params.token}`);
-  if (!offerEmail) {
+
+/**
+ * Après le match, le mandataire confirme qu'il a été contacté par le mandant
+ * cela envoie automatiquement les informations pour sa procuration
+ */
+router.get('/mandataire/confirmation/:token', wrap(async (req, res, next) => {
+  var match = await db.get('SELECT * FROM offers WHERE offer_confirmation_token = ?', req.params.token);
+
+  if (!match) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
       avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
@@ -131,31 +151,28 @@ router.get('/procuration/confirmation/:token', wrap(async (req, res, next) => {
     });
   }
 
-  var offer = JSON.parse(await redis.getAsync(`offers:${offerEmail}`));
-  var requestEmail = await redis.getAsync(`offers:${offerEmail}:match`);
-  var commune = await redis.getAsync(`requests:${requestEmail}:commune`);
+  var request = await db.get('SELECT * FROM requests WHERE id = ?', match.request_id);
+  var offer = await db.get('SELECT * FROM offers WHERE id = ?', match.offer_id);
+  var city = await getCityInformation(request.insee);
 
   var address = `${offer.address1}<br>`;
   if (offer.address2) address += `${offer.address1}<br>`;
-  address += `${offer.zipcode}<br>${commune}`;
-
-  const confirmationLink = await generateRequestConfirmationLink(requestEmail);
-  const cancelLink = await generateRequestCancelLink(requestEmail, offerEmail);
+  address += `${offer.zipcode}<br>${city.name}`;
 
   var mail2Options = Object.assign({
-    to: requestEmail,
+    to: request.email,
     subject: `${offer.first_name} ${offer.last_name} vous envoie les informations pour votre procuration !`,
     html: await request({
       url: config.mails.matchInformations,
       qs: {
-        EMAIL: requestEmail,
+        EMAIL: request.email,
         FIRST_NAME: offer.first_name,
         LAST_NAME: offer.last_name,
-        COMMUNE: commune,
+        COMMUNE: city.name,
         ADDRESS: address,
         BIRTH_DATE: offer.date,
-        LINK: confirmationLink,
-        CANCEL_LINK: cancelLink
+        LINK: match.request_confirmation_token,
+        CANCEL_LINK: match.request_cancel_token
       },
     })
   }, config.emailOptions);
@@ -163,19 +180,17 @@ router.get('/procuration/confirmation/:token', wrap(async (req, res, next) => {
   mailer.sendMail(mail2Options, async (err) => {
     if (err) next(err);
 
-    var flags = await redis.getAsync(`requests:${requestEmail}:posted`);
-    await redis.setAsync(`requests:${requestEmail}:posted`, flags | consts.offerHasConfirm);
+    await db.run('UPDATE matches SET offer_confirmation = ? WHERE request_id = ? AND offer_id = ?',
+      new Date(), request.id, offer.id);
 
     return res.redirect('/confirmation');
   });
 }));
 
-router.get('/procuration/annulation/:token', wrap(async (req, res) => {
-  let requestEmail, offerEmail;
+router.get('/mandataire/annulation/:token', wrap(async (req, res) => {
+  var match = await db.get('SELECT * FROM matches WHERE offer_cancel_token = ?', req.params.token);
 
-  try {
-    [requestEmail, offerEmail] = await checkOfferCancelToken(req.params.token);
-  } catch(err) {
+  if (!match) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
       avez demandé et reçu un autre lien plus récemment. Merci de vérifier dans\
@@ -183,12 +198,8 @@ router.get('/procuration/annulation/:token', wrap(async (req, res) => {
     });
   }
 
-  await redis.batch()
-    .del(`requests:${requestEmail}:match`)
-    .del(`requests:${requestEmail}:matchDate`)
-    .del(`requests:${requestEmail}:posted`)
-    .del(`offers:${offerEmail}:match`)
-    .execAsync();
+  await db.run('DELETE FROM matches WHERE offer_cancel_token = ?', req.params.token);
+  await db.run('DELETE FROM offers WHERE id = ?', match.offer_id);
 
   return res.render('annulation_offre');
 }));

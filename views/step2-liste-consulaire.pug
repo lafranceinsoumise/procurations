@@ -9,7 +9,7 @@ block content
       de trouver quelqu'un pouvant prendre votre procuration.
   else
     p.lead.
-      Vous avez déjà indiqué chercher une procuration pour #{commune}. Si vous souhaitez
+      Vous avez déjà indiqué chercher une procuration pour #{communeString}. Si vous souhaitez
       vous inscrire plutôt sur une liste consulaire, vous pouvez remplir ce formulaire à nouveau.
   form(action="/etape-2-liste-consulaire" method="POST")
     .form-group(class=errors && errors.commune ? "has-error" : "")
