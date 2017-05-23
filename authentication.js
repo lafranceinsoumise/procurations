@@ -2,23 +2,22 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const TotpStrategy = require('passport-totp').Strategy;
 
-var redis = require('./index').redis;
-const users = require('./config').users;
+const db = require('./lib/sqlite');
 
-passport.use(new LocalStrategy((username, password, done) => {
-  var user = users.filter(u => (u.username == username && u.password == password));
-  if (user.length == 0) {
+passport.use(new LocalStrategy(async (username, password, done) => {
+  var user = await db.get('SELECT * FROM admins WHERE username = ? AND password = ?', username, password);
+  if (!user) {
     return done(null, false, {message: 'Incorrect credentials.'});
   }
 
-  return done(null, user[0].username);
+  return done(null, user.username);
 }));
 
-passport.use(new TotpStrategy(async function(user, done) {
+passport.use(new TotpStrategy(async function(username, done) {
   try {
-    var key = await redis.getAsync(`totp:${user}`);
+    var {totp} = await db.get('SELECT * FROM admins WHERE username = ?', username);
 
-    return done(null, key, 30);
+    return done(null, totp, 30);
   } catch (err) {
     done(err);
   }

@@ -1,8 +1,7 @@
 -- Up
-
 CREATE TABLE admins (
   id INTEGER PRIMARY KEY,
-  user TEXT UNIQUE,
+  username TEXT UNIQUE,
   password TEXT,
   totp TEXT,
   totp_valid BOOLEAN
@@ -35,7 +34,7 @@ CREATE TABLE offers (
   birth_date DATETIME,
   zipcode TEXT,
   address1 TEXT,
-  address2 TEXT
+  address2 TEXT,
   CONSTRAINT offer_fk_invitation_id FOREIGN KEY (id) REFERENCES invitations (id)
 );
 
@@ -61,10 +60,9 @@ CREATE TABLE cities (
 );
 
 -- Down
-
-DROP TABLE IF EXISTS admins
-DROP TABLE IF EXISTS requests
-DROP TABLE IF EXISTS invitations
-DROP TABLE IF EXISTS offers
-DROP TABLE IF EXISTS matches
-DROP TABLE IF EXISTS cities;
+DROP TABLE IF EXISTS `cities`;
+DROP TABLE IF EXISTS `matches`;
+DROP TABLE IF EXISTS `offers`;
+DROP TABLE IF EXISTS `invitations`;
+DROP TABLE IF EXISTS `requests`;
+DROP TABLE IF EXISTS `admins`;

@@ -63,12 +63,13 @@ app.use('/', (req, res, next) => {
 app.get('/login-totp', wrap(async (req, res) => {
   var qrImage = false;
 
-  if (!await db.get('SELECT totp_valid FROM users WHERE user = ?', req.user)) {
-    var {totp: key} = (await db.get('SELECT totp FROM users WHERE user = ?', req.user)) || uuid();
+  var user = await db.get('SELECT totp_valid FROM admins WHERE username = ?', req.user);
+  if (!user.totp_valid) {
+    var totp = user.totp || uuid();
 
-    var otpUrl = `otpauth://totp/Procurations%20JLM2017:${req.user}?secret=${base32.encode(key)}&period=30`;
+    var otpUrl = `otpauth://totp/Procurations%20JLM2017:${req.user}?secret=${base32.encode(totp)}&period=30`;
     qrImage = `https://chart.googleapis.com/chart?chs=166x166&chld=L|0&cht=qr&chl=${encodeURIComponent(otpUrl)}`;
-    await db.run('UPDATE users SET totp = ? WHERE user = ?', key, req.user);
+    await db.run('UPDATE admins SET totp = ? WHERE username = ?', totp, req.user);
   }
 
   res.render('loginTotp', {qrImage});
@@ -76,7 +77,7 @@ app.get('/login-totp', wrap(async (req, res) => {
 
 app.post('/login-totp', passport.authenticate('totp', {failureRedirect: '/login-totp'}), wrap(async (req, res) => {
   req.session.totp = true;
-  await db.run('UPDATE users SET totp_valid = 1 WHERE user = ?', req.user);
+  await db.run('UPDATE admins SET totp_valid = 1 WHERE username = ?', req.user);
 
   res.redirect('/admin');
 }));

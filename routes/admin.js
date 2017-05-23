@@ -1,7 +1,7 @@
 const express = require('express');
 
-const {requestHasConfirm, offerHasConfirm} = require('../constants');
-var redis = require('../index').redis;
+const db = require('../lib/sqlite');
+
 var router = express.Router();
 var wrap = fn => (...args) => fn(...args).catch(args[2]);
 
@@ -11,31 +11,8 @@ router.get('/requests/:page?', wrap(async (req, res) => {
   var page = (req.params && req.params.page) || 1;
 
   var perPage = 100;
-  var list = await redis.lrangeAsync('requests:all', perPage * (page - 1), perPage * page - 1);
-
-  list = await Promise.all(list.map(async (email) => {
-    var valid = await redis.getAsync(`requests:${email}:valid`);
-
-    if (valid) {
-      var insee = await redis.getAsync(`requests:${email}:insee`);
-      var commune = JSON.parse(await redis.getAsync(`commune:${insee}`)).completeName;
-    }
-
-    if (commune) {
-      var matching = await redis.getAsync(`requests:${email}:match`);
-    }
-
-    if (matching) {
-      var posted = await redis.getAsync(`requests:${email}:posted`);
-    }
-
-    var requestConfirmed = posted & requestHasConfirm;
-    var offerConfirmed = posted & offerHasConfirm;
-
-    return {email, valid, commune, matching, requestConfirmed, offerConfirmed};
-  }));
-
-  var total = await redis.llenAsync('requests:all');
+  var list = await db.all('SELECT * FROM requests LIMIT 100 OFFSET ?', perPage*(page-1));
+  var {total} = await db.get('SELECT COUNT(id) AS total FROM requests');
 
   res.render('admin/requests', {list, total});
 }));
@@ -48,20 +25,8 @@ router.get('/:type/:page?', wrap(async (req, res) => {
   var page = (req.params && req.params.page) || 1;
 
   var perPage = 100;
-  var list = await redis.lrangeAsync(`${req.params.type}:all`, perPage * (page - 1), perPage * page - 1);
-
-  list = await Promise.all(list.map(async (email) => {
-    var date = await redis.getAsync(`invitations:${email}:date`);
-    var details = JSON.parse(await redis.getAsync(`offers:${email}`));
-
-    if (details) {
-      var matching = await redis.getAsync(`offers:${email}:match`);
-    }
-
-    return {email, date, details, matching};
-  }));
-
-  var total = await redis.llenAsync(`${req.params.type}:all`);
+  var list = await db.all('SELECT * FROM invitations LIMIT 100 OFFSET ?', perPage*(page-1));
+  var {total} = await db.get('SELECT COUNT(id) AS total FROM invitations');
 
   res.render('admin/offers', {list, total, type: req.params.type});
 }));

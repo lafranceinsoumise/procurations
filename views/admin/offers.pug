@@ -14,10 +14,8 @@ block admin_content
       th Email
       th Date de l'invitation
       th Commune
-      th Match
     each elem in list
       tr
         td= elem.email
         td= elem.date
-        td= elem.details && elem.details.commune
-        td= elem.matching
+        td= elem.insee
