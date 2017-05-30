@@ -63,7 +63,7 @@ app.use('/', (req, res, next) => {
 app.get('/login-totp', wrap(async (req, res) => {
   var qrImage = false;
 
-  var user = await db.get('SELECT totp_valid FROM admins WHERE username = ?', req.user);
+  var user = await db.get('SELECT * FROM admins WHERE username = ?', req.user);
   if (!user.totp_valid) {
     var totp = user.totp || uuid();
 

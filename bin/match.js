@@ -1,10 +1,9 @@
-const request = require('request-promise-native');
+const httpRequest = require('request-promise-native');
 
+const db = require('../lib/sqlite');
 const config = require('../config');
-const redis = require('../lib/redis');
 const mailer = require('../lib/mailer');
-const {generateRequestConfirmationLink, generateOfferConfirmationLink, generateRequestCancelLink} = require('../lib/tokens');
-const {saveMatch, getCityInformation, getOffer} = require('../lib/actions');
+const {saveMatch, getCityInformation} = require('../lib/actions');
 
 const {askMorePeople, mailReminder} = require('./ask');
 
@@ -13,82 +12,72 @@ const {askMorePeople, mailReminder} = require('./ask');
 async function iterate() {
   console.log(`Starting match.js : ${(new Date()).toISOString()}`);
   console.log('new iteration of all requests');
-  var cursor = 0;
-  var emails;
-  var matchedEmail;
 
   const unmatchedRequestsByCommune = {};
 
+  var {count} = await db.get('SELECT COUNT(id) AS count FROM requests');
   // Iterate redis SCAN
-  for(;;) {
-    [cursor, emails] = await redis.scanAsync(cursor, 'MATCH', `${config.redisPrefix}requests:*:insee`, 'COUNT', '99');
+  for(var i = 0; i < count; i+=100) {
 
-    for (var i = 0; i < emails.length; i++) {
-      var email = emails[i].match(`${config.redisPrefix}requests:(.*):insee`)[1];
+    let results = await db.all('SELECT * FROM requests LEFT JOIN matches ON matches.request_id = requests.id WHERE insee IS NOT NULL LIMIT 100 OFFSET ?', i);
 
-      var insee = await redis.getAsync(`requests:${email}:insee`);
+    for (var j = 0; i < results.length; i++) {
+      let request = results[j];
+
       // If already matched, skip
-      if ((matchedEmail = await redis.getAsync(`requests:${email}:match`))) {
-        await mailReminder(email, matchedEmail, insee);
+      if (request.offer_id) {
+        let offer = await db.get('SELECT * FROM offers WHERE offers.id = ?', request.offer_id);
+        await mailReminder(request, offer);
         continue;
       }
 
-      // Find someoneInTheQueue
-      var someoneInTheQueue = await redis.lpopAsync(`offers:${insee}`);
+      // Find offerInTheQueue
+      let sql = 'SELECT offers.* FROM offers LEFT JOIN matches ON matches.offer_id = offers.id WHERE offers.insee = ? AND matches.request_id IS NULL';
+      let offerInTheQueue = await db.get(sql, request.insee);
 
-      if (someoneInTheQueue) {
-        await match(email, someoneInTheQueue, insee);
+      if (offerInTheQueue) {
+        await match(request, offerInTheQueue);
         continue;
       }
 
-      if (!unmatchedRequestsByCommune[insee]) {
-        unmatchedRequestsByCommune[insee] = [];
+      // Add an unmatched request to the count for this commune
+      if (!unmatchedRequestsByCommune[request.insee]) {
+        unmatchedRequestsByCommune[request.insee] = 0;
       }
-      unmatchedRequestsByCommune[insee].push(email);
-    }
-
-    if (cursor == '0') {
-      break;
+      unmatchedRequestsByCommune[request.insee]++;
     }
   }
 
   console.log('now handling yet unmatched requests...');
   // now handle unmatched requests
   for (let insee in unmatchedRequestsByCommune) {
-    const emails = unmatchedRequestsByCommune[insee];
-    await askMorePeople(insee, emails.length);
+    await askMorePeople(insee, unmatchedRequestsByCommune[insee]);
   }
 }
 
 /**
- * [match description]
- * @return {Promise}
+ * @param  {Object} request
+ * @param  {Object} offer
  */
-async function match(requestEmail, offerEmail, insee) {
-
-  const requestConfirmLink = await generateRequestConfirmationLink(requestEmail);
-  const cancelLink = await generateRequestCancelLink(requestEmail, offerEmail);
-
+async function match(request, offer) {
   // save to Redis
-  await saveMatch(requestEmail, offerEmail);
+  const {requestToken, offerToken, requestCancelToken} = await saveMatch(request, offer);
+  console.log(`${request.email} : matched to ${offer.email}`);
 
-  console.log(`${requestEmail} : matched to ${offerEmail}`);
-
-  const commune = await getCityInformation(insee);
-  const offer = await getOffer(offerEmail);
+  const city = await getCityInformation(request.insee);
 
   var mailOptions = Object.assign({
-    to: requestEmail, // list of receivers
+    to: request.email,
     subject: 'Quelqu\'un peut prendre votre procuration !', // Subject line
-    html: await request({
+    html: await httpRequest({
       url: config.mails.requestMatch,
       qs: {
-        EMAIL: requestEmail,
+        EMAIL: request.email,
         PHONE: offer.phone,
         FIRST_NAME: offer.first_name,
-        COMMUNE: commune.completeName,
-        LINK: requestConfirmLink,
-        CANCEL_LINK: cancelLink,
+        COMMUNE: city.name,
+        LINK: `${config.host}/confirmation/${requestToken}`,
+        CANCEL_LINK: `${config.host}/annulation/${requestCancelToken}`,
       }
     })
   }, config.emailOptions);
@@ -97,25 +86,23 @@ async function match(requestEmail, offerEmail, insee) {
     if (err) console.error(err.stack);
   });
 
-  const offerConfirmLink = await generateOfferConfirmationLink(offerEmail);
-
   var address = `${offer.address1}<br>`;
   if (offer.address2) address += `${offer.address1}<br>`;
-  address += `${offer.zipcode}<br>${commune.completeName}`;
+  address += `${offer.zipcode}<br>${city.name}`;
 
   var mail2Options = Object.assign({
-    to: offerEmail,
+    to: offer.email,
     subject: 'Quelqu\'un veut que vous preniez sa procuration !',
-    html: await request({
+    html: await httpRequest({
       url: config.mails.offerMatch,
       qs: {
-        EMAIL: offerEmail,
+        EMAIL: offer.email,
         FIRST_NAME: offer.first_name,
         LAST_NAME: offer.last_name,
-        COMMUNE: commune.completeName,
+        COMMUNE: city.name,
         ADDRESS: address,
-        BIRTH_DATE: offer.date,
-        LINK: offerConfirmLink,
+        BIRTH_DATE: offer.birth_date,
+        LINK: `${config.host}/mandataire/confirmation/${offerToken}`,
       },
     })
   }, config.emailOptions);
@@ -125,11 +112,11 @@ async function match(requestEmail, offerEmail, insee) {
   });
 }
 
-iterate()
-  .then(() => {
-    console.log(`match.js finished  ==> ${(new Date()).toISOString()}`);
-    console.log('----------------------------------------------');
-
-    redis.quit();
-  })
-  .catch((err) => console.error(err.stack));
+setTimeout(() => {
+  iterate()
+    .then(() => {
+      console.log(`match.js finished  ==> ${(new Date()).toISOString()}`);
+      console.log('----------------------------------------------');
+    })
+    .catch((err) => console.error(err.stack));
+}, 1000);

@@ -239,7 +239,7 @@ router.post('/etape-2-liste-consulaire', wrap(async (req, res, next) => {
  * Lea mandant confirme qu'iel a bien reçu les infos et a fait sa procuration.
  */
 router.get('/confirmation/:token', wrap(async (req, res) => {
-  var match = await db.get('SELECT id FROM matches WHERE request_confirmation_token = ?', req.params.token);
+  var match = await db.get('SELECT * FROM matches WHERE request_confirmation_token = ?', req.params.token);
   if (!match) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\

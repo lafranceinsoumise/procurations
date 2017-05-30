@@ -7,7 +7,7 @@ block content
     Pour prendre la procuration d'une personne de votre commune, merci de remplir le formulaire suivant. Si quelqu'un dans votre commune a besoin d'une procuration, vous en serez informé&middot;e par e-mail.
   p.
     La personne recevra immédiatement les informations nécessaires pour établir sa procuration et vous contactera pour confirmation.
-  form(action="/procuration" method="POST")
+  form(action="/mandataire" method="POST")
     .form-group(class=errors && errors.first_name ? "has-error" : "")
       label Prénom
       input.form-control.input-block(type="text" name="first_name" required value=form && !(errors && errors.first_name) ? form.first_name : '')

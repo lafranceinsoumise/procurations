@@ -1,6 +1,6 @@
 const express = require('express');
 const moment = require('moment');
-const request = require('request-promise-native');
+const httpRequest = require('request-promise-native');
 const validator = require('validator');
 
 var {db, mailer} = require('../index');
@@ -14,7 +14,7 @@ var wrap = fn => (...args) => fn(...args).catch(args[2]);
  * il va remplir ses informations pour être ajouté à la liste des offres
  */
 router.get('/mandataire/:token', wrap(async (req, res) => {
-  var invitation = db.get('SELECT * FROM invitations WHERE token = ?', req.params.token);
+  var invitation = await db.get('SELECT * FROM offers WHERE token = ?', req.params.token);
   if (!invitation) {
     return res.status(401).render('errorMessage', {
       message: 'Ce lien est invalide ou périmé. Cela signifie probablement que vous\
@@ -23,12 +23,12 @@ router.get('/mandataire/:token', wrap(async (req, res) => {
     });
   }
 
-  /*if (await db.get('SELECT * FROM matches WHERE invitation_id')) {
+  if (await db.get('SELECT * FROM matches WHERE offer_id = ?', invitation.id)) {
     return res.status(401).render('errorMessage', {
       message: 'Un e-mail a déjà été envoyé à la personne qui souhaite vous\
       donner sa procuration. Elle vous contactera pour confirmation.'
     });
-  }*/
+  }
 
   req.session.invitation = invitation;
 
@@ -88,7 +88,7 @@ router.post('/mandataire', wrap(async (req, res) => {
   }
 
   var ban = await request({
-    uri: `https://api-adresse.data.gouv.fr/search/?q=${req.body.commune}&type=municipality&citycode=${req.body.commune}&postcode=${req.body.zipcode}`,
+    uri: `https://api-adresse.data.gouv.fr/search/?q=${req.body.commune},${req.body.zipcode}&type=municipality&citycode=${req.body.commune}`,
     json: true
   });
 
@@ -103,26 +103,26 @@ router.post('/mandataire', wrap(async (req, res) => {
 
   delete req.session.errors;
 
-  await db.run('INSERT OR REPLACE INTO offers (\
-    id,\
-    insee,\
-    first_name,\
-    last_name,\
-    phone,\
-    birth_date,\
-    zipcode,\
-    address1,\
-    address2\
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    req.session.invitation.id,
-    req.body.insee,
+  console.log(req.session.invitation.id);
+  await db.run('UPDATE offers SET \
+    insee = ?,\
+    first_name = ?,\
+    last_name = ?,\
+    phone = ?,\
+    birth_date = ?,\
+    zipcode = ?,\
+    address1 = ?,\
+    address2 = ?\
+    WHERE id = ?',
+    req.body.commune,
     req.body.first_name,
     req.body.last_name,
     req.body.phone,
     req.body.date,
     req.body.zipcode,
     req.body.address1,
-    req.body.address2
+    req.body.address2,
+    req.session.invitation.id
   );
 
   return res.redirect('/merci');
@@ -141,7 +141,7 @@ router.get('/merci', (req, res) => {
  * cela envoie automatiquement les informations pour sa procuration
  */
 router.get('/mandataire/confirmation/:token', wrap(async (req, res, next) => {
-  var match = await db.get('SELECT * FROM offers WHERE offer_confirmation_token = ?', req.params.token);
+  var match = await db.get('SELECT * FROM matches WHERE offer_confirmation_token = ?', req.params.token);
 
   if (!match) {
     return res.status(401).render('errorMessage', {
@@ -162,7 +162,7 @@ router.get('/mandataire/confirmation/:token', wrap(async (req, res, next) => {
   var mail2Options = Object.assign({
     to: request.email,
     subject: `${offer.first_name} ${offer.last_name} vous envoie les informations pour votre procuration !`,
-    html: await request({
+    html: await httpRequest({
       url: config.mails.matchInformations,
       qs: {
         EMAIL: request.email,
@@ -170,9 +170,9 @@ router.get('/mandataire/confirmation/:token', wrap(async (req, res, next) => {
         LAST_NAME: offer.last_name,
         COMMUNE: city.name,
         ADDRESS: address,
-        BIRTH_DATE: offer.date,
-        LINK: match.request_confirmation_token,
-        CANCEL_LINK: match.request_cancel_token
+        BIRTH_DATE: offer.birth_date,
+        LINK: `${config.host}/confirmation/${match.request_confirmation_token}`,
+        CANCEL_LINK: `${config.host}/annulation/${match.request_cancel_token}`
       },
     })
   }, config.emailOptions);

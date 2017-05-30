@@ -1,18 +1,12 @@
 const base64 = require('js-base64').Base64;
-const request = require('request-promise-native');
+const httpRequest = require('request-promise-native');
 const sortBy = require('lodash/sortBy');
+const uuid = require('uuid/v4');
 
-const constants = require('../constants');
+const {getCityInformation} = require('../lib/actions');
 const config = require('../config');
-const redis = require('../lib/redis');
+const db = require('../lib/sqlite');
 const mailer = require('../lib/mailer');
-const {
-  generateRequestConfirmationLink,
-  generateOfferConfirmationLink,
-  generateRequestCancelLink,
-  generateOfferCancelLink,
-  generateInvitationLink
-} = require('../lib/tokens');
 
 /**
  * Ask ten more people we did not ask
@@ -21,17 +15,16 @@ const {
  * @return {Promise}
  */
 async function askMorePeople(insee, count) {
-  const zipcodes = await redis.getAsync(`code-postaux:${insee}`);
-  const city = JSON.parse(await redis.getAsync(`commune:${insee}`));
+  const city = await getCityInformation(insee);
 
   const today = new Date();
-  var people = [];
+  const people = [];
   const alreadyContacted = [];
   // Iterate API pages to find 10 people with no pending invitation
   for (var page = 1; people.length < 10; page++) {
     let peoplePage;
     try {
-      peoplePage = await getPeoplePage(zipcodes, page);
+      peoplePage = await getPeoplePage(city.zipcodes, page);
       if (peoplePage.length === 0) break;
     } catch (err) {
       return console.error('Can\'t get people from api.jlm2017.fr\n', err.stack);
@@ -40,24 +33,26 @@ async function askMorePeople(insee, count) {
     for (var i = 0; i < peoplePage.length && people.length < 10 * count; i++) {
       if (peoplePage[i].bounced) continue;
 
-      const [hasRequested, hasOffered, lastInvitation] = await redis.batch()
-        .get(`requests:${peoplePage[i].email}:valid`)
-        .get(`offers:${peoplePage[i].email}`)
-        .get(`invitations:${peoplePage[i].email}:date`)
-        .execAsync();
+      const [request, offer, invitation] = await Promise.all([
+        db.get('SELECT * FROM requests WHERE email = ?', peoplePage[i].email.toLowerCase()),
+        db.get('SELECT * FROM offers WHERE email = ? AND insee IS NOT NULL', peoplePage[i].email.toLowerCase()),
+        db.get('SELECT * FROM offers WHERE email = ? AND insee IS NULL', peoplePage[i].email.toLowerCase()),
+      ]);
 
       // on n'inclut pas les gens qui veulent donner leur procuration ou qui ont
       // déjà proposé d'en prendre une
-      if (hasRequested || hasOffered) {
+      if (request || offer) {
         continue;
       }
 
       // on traite séparément les gens qui ont déjà reçu une invitation
-      if (lastInvitation) {
-        let lastDate = new Date(lastInvitation);
-        if(dateDiffInDays(today, lastDate) >= config.recontactAfterDays) {
+      if (invitation) {
+        let lastDate = new Date(invitation.sent_date);
+
+        if (dateDiffInDays(today, lastDate) >= config.recontactAfterDays) {
           alreadyContacted.push([lastDate.getTime(), peoplePage[i]]);
         }
+
         continue;
       }
 
@@ -65,7 +60,7 @@ async function askMorePeople(insee, count) {
     }
   }
 
-  if (people.length < 5*count) {
+  if (people.length < 5 * count) {
     const sortedPeople = sortBy(alreadyContacted, a => a[0]);
 
     for (let i= 0; i < sortedPeople.length && people.length < 5 * count; i++) {
@@ -74,7 +69,7 @@ async function askMorePeople(insee, count) {
   }
 
   await Promise.all(people.map(person => askSomeone(person, count, city)));
-  console.log(`${zipcodes} : asked ${people.length} more people`);
+  console.log(`${city.zipcodes} : asked ${people.length} more people`);
 }
 
 /**
@@ -84,8 +79,8 @@ async function askMorePeople(insee, count) {
  * @return {Promise}          Promise on array of {email, zipcode}
  */
 async function getPeoplePage(zipcodes, page = 0) {
-  var people = await request({
-    url: `https://api.jlm2017.fr/people?where={"location.zip":{"$in":${zipcodes}},"_created":{"$lt":"Sun, 26 Mar 2017 23:59:59 GMT"}}&page=${page}`,
+  var people = await httpRequest({
+    url: `https://api.jlm2017.fr/people?where={"location.zip":{"$in":${JSON.stringify(zipcodes)}},"_created":{"$lt":"Sun, 26 Mar 2017 23:59:59 GMT"}}&page=${page}`,
     headers: {
       Authorization: `Basic ${base64.encode(`${config.api_key}:`)}`
     },
@@ -98,28 +93,25 @@ async function getPeoplePage(zipcodes, page = 0) {
   }));
 }
 
-async function askSomeone(person, count, city) {
-
-  const completeName = city.completeName;
-  const shortName = 'name' in city ? city.name : completeName;
-
-  var invitationLink = await generateInvitationLink(person.email);
-  var emailContent = await request({
+async function askSomeone(person, count) {
+  var token = uuid();
+  var emailContent = await httpRequest({
     url: config.mails.invitation,
     qs: {
       EMAIL: person.email,
       COUNT: count,
-      CITY: completeName,
-      LINK: invitationLink
+      LINK: `${config.host}/mandataire/${token}`
     }
   });
 
-  await redis.lpushAsync('invitations:all', person.email);
-  await redis.setAsync(`invitations:${person.email}:date`, new Date());
+  console.log(person);
+  await db.run('INSERT OR REPLACE INTO offers (email, token, invitation_date) VALUES (?, ?, ?)',
+    person.email.toLowerCase(), token, new Date()
+  );
 
   var mailOptions = Object.assign({
     to: person.email, // list of receivers
-    subject: `${count} insoumis.e ${count > 1 ? 'cherchent' : 'cherche'} une procuration à ${shortName}`, // Subject line
+    subject: `${count} insoumis.e${count > 1 ? 's cherchent' : ' cherche'} une procuration près de chez vous !`, // Subject line
     html: emailContent // html body
   }, config.emailOptions);
 
@@ -136,10 +128,10 @@ function dateDiffInDays(a, b) {
   return Math.floor((utc2 - utc1) /1000/3600/24);
 }
 
-async function mailReminder(requestEmail, offerEmail, insee) {
+async function mailReminder(request, offer, insee) {
+  return; // TODO re-enable this
   /*
    * Send regular mail reminders to both offerer and requester
-   *
    */
   var date =  new Date(await redis.getAsync(`requests:${requestEmail}:matchDate`));
   var now = new Date();
@@ -191,7 +183,7 @@ async function mailReminder(requestEmail, offerEmail, insee) {
     const mailOptions = Object.assign({
       to: requestEmail,
       subject: 'Avez vous bien fait votre procuration ?',
-      html: await request({
+      html: await httpRequest({
         url: config.mails.requestProcurationReminder,
         qs: {
           EMAIL: requestEmail,

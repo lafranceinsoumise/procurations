@@ -3,8 +3,8 @@ $(function() {
   var communeSelectize = $('#commune-input').selectize({
     load: function(query, callback) {
       if (!query.length) return callback();
+      query = $('#zipcode').length > 0 ? (query + ',' + $('#zipcode').val()) : query;
       var url = 'https://api-adresse.data.gouv.fr/search/?q=' + query + '&type=municipality&limit=20';
-      url = $('#zipcode').length > 0 ? (url + '&postcode=' + $('#zipcode').val()) : url;
       $.ajax({
         url: url,
         dataType: 'json',
