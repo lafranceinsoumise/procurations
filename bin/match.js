@@ -21,7 +21,7 @@ async function iterate() {
 
     let results = await db.all('SELECT * FROM requests LEFT JOIN matches ON matches.request_id = requests.id WHERE insee IS NOT NULL LIMIT 100 OFFSET ?', i);
 
-    for (var j = 0; i < results.length; i++) {
+    for (var j = 0; j < results.length; j++) {
       let request = results[j];
 
       // If already matched, skip
