@@ -144,11 +144,25 @@ router.post('/etape-2', wrap(async (req, res) => {
     return res.redirect('/etape-2');
   }
 
+  var communes = await httpRequest({
+    uri: 'https://geo.api.gouv.fr/communes',
+    qs: {
+      code: req.body.commune
+    },
+    json: true
+  });
+
+  if (!communes.length) {
+    req.session.errors = {};
+    req.session.errors['commune'] = 'Commune inconnue.';
+
+    return res.redirect('/etape-2');
+  }
   // Get commune zipcodes
   var ban = await httpRequest({
     uri: 'https://api-adresse.data.gouv.fr/search/',
     qs: {
-      q: req.body.commune,
+      q: communes[0].nom,
       type: 'municipality',
       citycode: req.body.commune
     },
