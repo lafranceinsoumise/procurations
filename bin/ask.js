@@ -104,7 +104,6 @@ async function askSomeone(person, count) {
     }
   });
 
-  console.log(person);
   await db.run('INSERT OR REPLACE INTO offers (email, token, invitation_date) VALUES (?, ?, ?)',
     person.email.toLowerCase(), token, new Date()
   );
